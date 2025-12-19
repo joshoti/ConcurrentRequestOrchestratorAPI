@@ -16,19 +16,31 @@ typedef struct simulation_parameters {
     int printer_paper_capacity;
     double refill_rate;
     int num_jobs;
+    int consumer_count;
+    int auto_scaling;
+    int paper_count;
+    int fixed_arrival;
+    int min_arrival_time;
+    int max_arrival_time;
 } simulation_parameters_t;
 
 /**
- * job_arrival_time_us: 600,000 us = 1 job every 0.6 sec
- * papers_required_lower_bound: 5 pages
- * papers_required_upper_bound: 20 pages
- * queue_capacity: 15 jobs
- * printing_rate: 4 papers/sec
- * printer_paper_capacity: 100 pages
- * refill_rate: 15 papers/sec
- * num_jobs: 20 jobs
+ * job_arrival_time_us: 500,000 us = 1 job every 0.5 sec (jobArrivalTime: 500ms)
+ * papers_required_lower_bound: 5 pages (minPapers)
+ * papers_required_upper_bound: 15 pages (maxPapers)
+ * queue_capacity: -1 (unlimited, maxQueue)
+ * printing_rate: 5 papers/sec (printRate)
+ * printer_paper_capacity: 150 pages (paperCapacity)
+ * refill_rate: 25 papers/sec (refillRate)
+ * num_jobs: 10 jobs (jobCount)
+ * consumer_count: 2 printers (consumerCount)
+ * auto_scaling: 0 (false)
+ * paper_count: 50 pages (initial paperCount)
+ * fixed_arrival: 1 (true, fixedArrival)
+ * min_arrival_time: 300 ms (minArrivalTime)
+ * max_arrival_time: 600 ms (maxArrivalTime)
  */
-#define SIMULATION_DEFAULT_PARAMS {600000, 5, 20, 15, 4, 100, 15, 20}
+#define SIMULATION_DEFAULT_PARAMS {500000, 5, 15, -1, 5, 150, 25, 10, 2, 0, 50, 1, 300, 600}
 
 /**
  * @brief Print usage information for the program.
@@ -64,6 +76,26 @@ int is_positive_double(const char* str, double value);
  * @return 1 if the value is positive, 0 otherwise.
  */
 int is_positive_integer(const char* str, int value);
+
+/**
+ * @brief Check if a double value is within a specified range.
+ * @param str The name of the parameter being checked (for error messages).
+ * @param value The double value to check.
+ * @param min The minimum allowed value.
+ * @param max The maximum allowed value.
+ * @return 1 if the value is within range, 0 otherwise.
+ */
+int is_in_range_double(const char* str, double value, double min, double max);
+
+/**
+ * @brief Check if an integer value is within a specified range.
+ * @param str The name of the parameter being checked (for error messages).
+ * @param value The integer value to check.
+ * @param min The minimum allowed value.
+ * @param max The maximum allowed value.
+ * @return 1 if the value is within range, 0 otherwise.
+ */
+int is_in_range_int(const char* str, int value, int min, int max);
 
 /**
  * @brief Process command line arguments

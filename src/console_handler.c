@@ -74,19 +74,15 @@ void log_simulation_end(simulation_statistics_t* stats) {
  * @param previous_job_arrival_time_us The arrival time of the previous job in microseconds
  * @param current_job_arrival_time_us The current simulation time in microseconds.
  * @param is_dropped Whether the job was dropped (TRUE) or created (FALSE).
- * @param stats The simulation statistics to update.
- * @param ws_conn The WebSocket connection to publish the event to.
  */
 static void job_arrival_helper(int job_id, int papers_required,
     unsigned long previous_job_arrival_time_us, unsigned long current_job_arrival_time_us,
-    int is_dropped, simulation_statistics_t* stats)
+    int is_dropped)
 {
     flockfile(stdout);
     log_time(current_job_arrival_time_us, reference_time_us);
 
     int inter_arrival_time_us = current_job_arrival_time_us - previous_job_arrival_time_us;
-    stats->total_inter_arrival_time_us += inter_arrival_time_us; // stats: avg job inter-arrival time
-    stats->total_jobs_arrived ++; // stats: total jobs arrived
     int time_in_ms = inter_arrival_time_us / 1000;
     int time_in_us = inter_arrival_time_us % 1000;
     printf("job%d arrives, needs %d paper%s, inter-arrival time = %d.%03dms%s\n",
@@ -98,15 +94,17 @@ static void job_arrival_helper(int job_id, int papers_required,
 
 void log_system_arrival(job_t* job, unsigned long previous_job_arrival_time_us,
     simulation_statistics_t* stats) {
+    stats->total_jobs_arrived++; // stats: total jobs arrived
+    stats->total_inter_arrival_time_us += job->system_arrival_time_us - previous_job_arrival_time_us; // stats: avg job inter-arrival time
     job_arrival_helper(job->id, job->papers_required,
-        previous_job_arrival_time_us, job->system_arrival_time_us, FALSE, stats);
+        previous_job_arrival_time_us, job->system_arrival_time_us, FALSE);
 }
 
 void log_dropped_job(job_t* job, unsigned long previous_job_arrival_time_us,
     simulation_statistics_t* stats) {
-    stats->total_jobs_dropped += 1;
+    stats->total_jobs_dropped++; // stats: total jobs dropped
     job_arrival_helper(job->id, job->papers_required,
-        previous_job_arrival_time_us, job->system_arrival_time_us, TRUE, stats);
+        previous_job_arrival_time_us, job->system_arrival_time_us, TRUE);
 }
 
 void log_removed_job(job_t* job) {
