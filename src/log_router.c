@@ -87,6 +87,22 @@ void emit_paper_refill_end(struct printer* printer, int refill_duration_us,
     if (logger && has(logger->paper_refill_end)) logger->paper_refill_end(printer, refill_duration_us, current_time_us);
 }
 
+void emit_scale_up(int new_printer_count, int queue_length, unsigned long current_time_us) {
+    if (logger && has(logger->scale_up)) logger->scale_up(new_printer_count, queue_length, current_time_us);
+}
+
+void emit_scale_down(int new_printer_count, int queue_length, unsigned long current_time_us) {
+    if (logger && has(logger->scale_down)) logger->scale_down(new_printer_count, queue_length, current_time_us);
+}
+
+void emit_printer_idle(const struct printer* printer, unsigned long current_time_us) {
+    if (logger && has(logger->printer_idle)) logger->printer_idle(printer, current_time_us);
+}
+
+void emit_printer_busy(const struct printer* printer, unsigned long current_time_us) {
+    if (logger && has(logger->printer_busy)) logger->printer_busy(printer, current_time_us);
+}
+
 void emit_simulation_stopped(struct simulation_statistics* stats) {
     if (logger && has(logger->simulation_stopped)) logger->simulation_stopped(stats);
 }

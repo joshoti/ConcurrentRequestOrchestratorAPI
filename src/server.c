@@ -17,6 +17,7 @@
 #include "job_receiver.h"
 #include "paper_refiller.h"
 #include "printer.h"
+#include "autoscaling.h"
 #include "websocket_handler.h"
 #include "ws_bridge.h"
 #include "log_router.h"
@@ -38,8 +39,8 @@ extern int g_terminate_now;
 
 typedef struct simulation_context {
 	// Threads
-	pthread_t printer1_thread;
-	pthread_t printer2_thread;
+	printer_pool_t printer_pool;
+	pthread_t autoscaling_thread;
 	pthread_t job_receiver_thread;
 	pthread_t paper_refill_thread;
 	pthread_t simulation_runner_thread; // background wrapper
@@ -63,8 +64,7 @@ typedef struct simulation_context {
 
 	// Args
 	job_thread_args_t job_receiver_args;
-	printer_thread_args_t printer1_args;
-	printer_thread_args_t printer2_args;
+	autoscaling_thread_args_t autoscaling_args;
 	paper_refill_thread_args_t paper_refill_args;
 
 	// Control
@@ -76,7 +76,7 @@ static pthread_mutex_t g_server_state_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void init_context(simulation_context_t* ctx) {
 	memset(ctx, 0, sizeof(*ctx));
-	ctx->params = (simulation_parameters_t)SIMULATION_DEFAULT_PARAMS;
+	ctx->params = (simulation_parameters_t)SIMULATION_DEFAULT_PARAMS_HIGH_LOAD;
 	ctx->stats = (simulation_statistics_t){0};
 	ctx->all_jobs_arrived = 0;
 	ctx->all_jobs_served = 0;
@@ -121,11 +121,11 @@ static void* simulation_runner(void* arg) {
 	};
 	ctx->job_receiver_args = job_receiver_args;
 
-	// Concrete printers
-	printer_t printer1 = {.id = 1, .current_paper_count = ctx->params.printer_paper_capacity, .capacity = ctx->params.printer_paper_capacity, .total_papers_used = 0, .jobs_printed_count = 0};
-	printer_t printer2 = {.id = 2, .current_paper_count = ctx->params.printer_paper_capacity, .capacity = ctx->params.printer_paper_capacity, .total_papers_used = 0, .jobs_printed_count = 0};
+	// Initialize printer pool
+	printer_pool_init(&ctx->printer_pool, ctx->params.consumer_count, ctx->params.printer_paper_capacity);
 
-	printer_thread_args_t printer1_args = {
+	// Shared args template for all printers
+	printer_thread_args_t shared_printer_args = {
 		.paper_refill_queue_mutex = &ctx->paper_refill_queue_mutex,
 		.job_queue_mutex = &ctx->job_queue_mutex,
 		.stats_mutex = &ctx->stats_mutex,
@@ -140,13 +140,27 @@ static void* simulation_runner(void* arg) {
 		.stats = &ctx->stats,
 		.all_jobs_served = &ctx->all_jobs_served,
 		.all_jobs_arrived = &ctx->all_jobs_arrived,
-		.printer = &printer1
+		.printer = NULL // Will be set by printer_pool_start_printer
 	};
-	ctx->printer1_args = printer1_args;
 
-	printer_thread_args_t printer2_args = printer1_args;
-	printer2_args.printer = &printer2;
-	ctx->printer2_args = printer2_args;
+	// Autoscaling args
+	autoscaling_thread_args_t autoscaling_args = {
+		.pool = &ctx->printer_pool,
+		.job_queue_mutex = &ctx->job_queue_mutex,
+		.stats_mutex = &ctx->stats_mutex,
+		.simulation_state_mutex = &ctx->simulation_state_mutex,
+		.job_queue_not_empty_cv = &ctx->job_queue_not_empty_cv,
+		.refill_needed_cv = &ctx->refill_needed_cv,
+		.refill_supplier_cv = &ctx->refill_supplier_cv,
+		.paper_refill_thread = &ctx->paper_refill_thread,
+		.job_queue = &ctx->job_queue,
+		.paper_refill_queue = &ctx->paper_refill_queue,
+		.params = &ctx->params,
+		.stats = &ctx->stats,
+		.all_jobs_served = &ctx->all_jobs_served,
+		.all_jobs_arrived = &ctx->all_jobs_arrived
+	};
+	ctx->autoscaling_args = autoscaling_args;
 
 	paper_refill_thread_args_t paper_refill_args = {
 		.paper_refill_queue_mutex = &ctx->paper_refill_queue_mutex,
@@ -168,14 +182,32 @@ static void* simulation_runner(void* arg) {
 	// Create threads
 	pthread_create(&ctx->job_receiver_thread, NULL, job_receiver_thread_func, &ctx->job_receiver_args);
 	pthread_create(&ctx->paper_refill_thread, NULL, paper_refill_thread_func, &ctx->paper_refill_args);
-	pthread_create(&ctx->printer1_thread, NULL, printer_thread_func, &ctx->printer1_args);
-	pthread_create(&ctx->printer2_thread, NULL, printer_thread_func, &ctx->printer2_args);
+
+	// Start initial printers
+	for (int i = 1; i <= ctx->params.consumer_count; i++) {
+		printer_pool_start_printer(&ctx->printer_pool, i, &shared_printer_args);
+	}
+
+	// Autoscaling thread (if enabled)
+	if (ctx->params.auto_scaling) {
+		pthread_create(&ctx->autoscaling_thread, NULL, autoscaling_thread_func, &ctx->autoscaling_args);
+		if (g_debug) printf("Autoscaling enabled\n");
+	}
 
 	// Join threads
 	pthread_join(ctx->job_receiver_thread, NULL);
-	pthread_join(ctx->printer1_thread, NULL);
-	pthread_join(ctx->printer2_thread, NULL);
+	if (g_debug) printf("job_receiver_thread joined\n");
+
+	printer_pool_join_all(&ctx->printer_pool);
+	if (g_debug) printf("all printer threads joined\n");
+
 	pthread_join(ctx->paper_refill_thread, NULL);
+	if (g_debug) printf("paper_refill_thread joined\n");
+
+	if (ctx->params.auto_scaling) {
+		pthread_join(ctx->autoscaling_thread, NULL);
+		if (g_debug) printf("autoscaling_thread joined\n");
+	}
 
 	// Final logging
 	emit_simulation_end(&ctx->stats);

@@ -39,6 +39,7 @@ typedef struct simulation_parameters {
  * max_arrival_time: 600 ms (maxArrivalTime)
  */
 #define SIMULATION_DEFAULT_PARAMS {500000, 5, 15, -1, 5, 150, 25, 10, 2, 0, 1, 300, 600}
+#define SIMULATION_DEFAULT_PARAMS_HIGH_LOAD {200000, 10, 30, -1, 5, 90, 25, 20, 2, 1, 1, 300, 600}
 
 /**
  * @brief Print usage information for the program.

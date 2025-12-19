@@ -269,6 +269,50 @@ void publish_statistics(simulation_statistics_t* stats) {
     }
 }
 
+void publish_scale_up(int new_printer_count, int queue_length, unsigned long current_time_us) {
+    char time_buf[64];
+    char buf[1024];
+    
+    write_time_to_buffer(current_time_us, reference_time_us, time_buf);
+    sprintf(buf, "{\"type\":\"autoscale\", \"action\":\"scale_up\", \"time\":\"%s\", \
+\"printer_count\":%d, \"queue_length\":%d, \"message\":\"%s Autoscaling: Scaled UP to %d printers (queue length: %d)\"}",
+        time_buf, new_printer_count, queue_length, time_buf, new_printer_count, queue_length);
+    ws_bridge_send_json_from_any_thread(buf, strlen(buf));
+}
+
+void publish_scale_down(int new_printer_count, int queue_length, unsigned long current_time_us) {
+    char time_buf[64];
+    char buf[1024];
+    
+    write_time_to_buffer(current_time_us, reference_time_us, time_buf);
+    sprintf(buf, "{\"type\":\"autoscale\", \"action\":\"scale_down\", \"time\":\"%s\", \
+\"printer_count\":%d, \"queue_length\":%d, \"message\":\"%s Autoscaling: Scaled DOWN to %d printers (queue length: %d)\"}",
+        time_buf, new_printer_count, queue_length, time_buf, new_printer_count, queue_length);
+    ws_bridge_send_json_from_any_thread(buf, strlen(buf));
+}
+
+void publish_printer_idle(const printer_t* printer, unsigned long current_time_us) {
+    char time_buf[64];
+    char buf[1024];
+    
+    write_time_to_buffer(current_time_us, reference_time_us, time_buf);
+    sprintf(buf, "{\"type\":\"printer_status\", \"printer_id\":%d, \"status\":\"idle\", \
+\"time\":\"%s\", \"message\":\"%s printer%d is now idle\"}",
+        printer->id, time_buf, time_buf, printer->id);
+    ws_bridge_send_json_from_any_thread(buf, strlen(buf));
+}
+
+void publish_printer_busy(const printer_t* printer, unsigned long current_time_us) {
+    char time_buf[64];
+    char buf[1024];
+    
+    write_time_to_buffer(current_time_us, reference_time_us, time_buf);
+    sprintf(buf, "{\"type\":\"printer_status\", \"printer_id\":%d, \"status\":\"busy\", \
+\"time\":\"%s\", \"message\":\"%s printer%d is now busy\"}",
+        printer->id, time_buf, time_buf, printer->id);
+    ws_bridge_send_json_from_any_thread(buf, strlen(buf));
+}
+
 void websocket_handler_register(void) {
     static const log_ops_t ops = {
         .simulation_parameters = publish_simulation_parameters,
@@ -284,6 +328,10 @@ void websocket_handler_register(void) {
         .paper_empty = publish_paper_empty,
         .paper_refill_start = publish_paper_refill_start,
         .paper_refill_end = publish_paper_refill_end,
+        .scale_up = publish_scale_up,
+        .scale_down = publish_scale_down,
+        .printer_idle = publish_printer_idle,
+        .printer_busy = publish_printer_busy,
         .simulation_stopped = publish_simulation_stopped,
         .statistics = publish_statistics,
     };

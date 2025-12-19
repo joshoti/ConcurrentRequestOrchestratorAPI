@@ -41,6 +41,11 @@ typedef struct log_ops {
     void (*paper_refill_end)(struct printer* printer, int refill_duration_us,
                              unsigned long current_time_us);
 
+    void (*scale_up)(int new_printer_count, int queue_length, unsigned long current_time_us);
+    void (*scale_down)(int new_printer_count, int queue_length, unsigned long current_time_us);
+    void (*printer_idle)(const struct printer* printer, unsigned long current_time_us);
+    void (*printer_busy)(const struct printer* printer, unsigned long current_time_us);
+
     void (*simulation_stopped)(struct simulation_statistics* stats);
     void (*statistics)(struct simulation_statistics* stats);
 } log_ops_t;
@@ -79,6 +84,10 @@ void emit_paper_refill_start(struct printer* printer, int papers_needed,
                              int time_to_refill_us, unsigned long current_time_us);
 void emit_paper_refill_end(struct printer* printer, int refill_duration_us,
                            unsigned long current_time_us);
+void emit_scale_up(int new_printer_count, int queue_length, unsigned long current_time_us);
+void emit_scale_down(int new_printer_count, int queue_length, unsigned long current_time_us);
+void emit_printer_idle(const struct printer* printer, unsigned long current_time_us);
+void emit_printer_busy(const struct printer* printer, unsigned long current_time_us);
 void emit_simulation_stopped(struct simulation_statistics* stats);
 void emit_statistics(struct simulation_statistics* stats);
 

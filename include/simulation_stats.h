@@ -1,6 +1,10 @@
 #ifndef SIMULATION_STATS_H
 #define SIMULATION_STATS_H
 
+#include "config.h"
+
+#define MAX_PRINTERS CONFIG_RANGE_CONSUMER_COUNT_MAX
+
 typedef struct simulation_statistics {
     // --- General Simulation Metrics ---
     unsigned long simulation_start_time_us;     // Start time of the simulation
@@ -20,17 +24,24 @@ typedef struct simulation_statistics {
     unsigned long area_num_in_job_queue_us;     // Integral of queue length over time, for avg queue length
     unsigned int max_job_queue_length;          // Peak number of jobs ever in the queue
 
-    // --- Printer 1 (S1) Metrics ---
+    // --- Printer 1 (S1) Metrics (kept for backwards compatibility) ---
     double jobs_served_by_printer1;             // Total jobs completed by printer 1
     int printer1_paper_used;                     // Total paper used by printer 1
     unsigned long total_service_time_p1_us;     // Sum of service times for jobs on printer 1
     unsigned long printer1_paper_empty_time_us; // Total time printer 1 was idle due to no paper
 
-    // --- Printer 2 (S2) Metrics ---
+    // --- Printer 2 (S2) Metrics (kept for backwards compatibility) ---
     double jobs_served_by_printer2;             // Total jobs completed by printer 2
     int printer2_paper_used;                     // Total paper used by printer 2
     unsigned long total_service_time_p2_us;     // Sum of service times for jobs on printer 2
     unsigned long printer2_paper_empty_time_us; // Total time printer 2 was idle due to no paper
+
+    // --- Per-Printer Metrics (arrays for all 5 printers) ---
+    double jobs_served_by_printer[MAX_PRINTERS];        // Jobs completed by each printer [0-4]
+    int printer_paper_used[MAX_PRINTERS];                // Paper used by each printer [0-4]
+    unsigned long total_service_time_printer_us[MAX_PRINTERS];  // Service times by each printer [0-4]
+    unsigned long printer_paper_empty_time_us[MAX_PRINTERS];    // Idle time due to no paper [0-4]
+    int max_printers_used;                               // Track how many printers were actually used (1-5)
 
     // --- Paper Refill Metrics ---
     double paper_refill_events;                 // Number of times the paper was refilled

@@ -170,6 +170,21 @@ void log_system_departure(const job_t* job, const printer_t* printer,
     stats->total_jobs_served += 1; // stats: total jobs served
     
     int service_duration = job->service_departure_time_us - job->service_arrival_time_us;
+    
+    // Track in array format (0-indexed)
+    int idx = printer->id - 1;
+    if (idx >= 0 && idx < MAX_PRINTERS) {
+        stats->jobs_served_by_printer[idx] += 1;
+        stats->printer_paper_used[idx] += job->papers_required;
+        stats->total_service_time_printer_us[idx] += service_duration;
+        
+        // Update max_printers_used
+        if (printer->id > stats->max_printers_used) {
+            stats->max_printers_used = printer->id;
+        }
+    }
+    
+    // Keep backwards compatibility for printer 1 and 2
     if (printer->id == 1) {
         stats->total_service_time_p1_us += service_duration; // stats: avg job service time
         stats->jobs_served_by_printer1 += 1; // stats: total jobs served by printer 1
@@ -230,6 +245,20 @@ void log_ctrl_c_pressed(simulation_statistics_t* stats) {
     funlockfile(stdout);
 }
 
+void log_scale_up(int new_printer_count, int queue_length, unsigned long current_time_us) {
+    flockfile(stdout);
+    log_time(current_time_us, reference_time_us);
+    printf("Autoscaling: Scaled UP to %d printers (queue length: %d)\n", new_printer_count, queue_length);
+    funlockfile(stdout);
+}
+
+void log_scale_down(int new_printer_count, int queue_length, unsigned long current_time_us) {
+    flockfile(stdout);
+    log_time(current_time_us, reference_time_us);
+    printf("Autoscaling: Scaled DOWN to %d printers (queue length: %d)\n", new_printer_count, queue_length);
+    funlockfile(stdout);
+}
+
 void console_handler_register(void) {
     static const log_ops_t ops = {
         .simulation_parameters = log_simulation_parameters,
@@ -245,6 +274,10 @@ void console_handler_register(void) {
         .paper_empty = log_paper_empty,
         .paper_refill_start = log_paper_refill_start,
         .paper_refill_end = log_paper_refill_end,
+        .scale_up = log_scale_up,
+        .scale_down = log_scale_down,
+        .printer_idle = NULL, // only relevant for websocket (visualizing on frontend)
+        .printer_busy = NULL, // only relevant for websocket (visualizing on frontend)
         .simulation_stopped = log_ctrl_c_pressed,
         .statistics = log_statistics,
     };

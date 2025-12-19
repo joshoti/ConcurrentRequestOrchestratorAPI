@@ -10,6 +10,7 @@
 #include "job_receiver.h"
 #include "paper_refiller.h"
 #include "printer.h"
+#include "autoscaling.h"
 #include "common.h"
 #include "preprocessing.h"
 #include "log_router.h"
@@ -27,11 +28,10 @@ int main(int argc, char *argv[]) {
     sigprocmask(SIG_BLOCK, &set, (sigset_t*)0);
 
     // --- Thread identifiers ---
-    pthread_t printer1_thread;
-    pthread_t printer2_thread;
     pthread_t job_receiver_thread;
     pthread_t paper_refill_thread;
     pthread_t signal_catching_thread;
+    pthread_t autoscaling_thread;
 
     // --- Synchronization primitives (shared) ---
     pthread_mutex_t job_queue_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
     pthread_cond_t refill_supplier_cv = PTHREAD_COND_INITIALIZER;
 
     // --- Simulation state ---
-    simulation_parameters_t params = SIMULATION_DEFAULT_PARAMS;
+    simulation_parameters_t params = SIMULATION_DEFAULT_PARAMS_HIGH_LOAD;
     simulation_statistics_t stats = (simulation_statistics_t){0};
     int all_jobs_arrived = 0;
     int all_jobs_served = 0;
@@ -53,6 +53,10 @@ int main(int argc, char *argv[]) {
     list_init(&paper_refill_queue);
 
     if (!process_args(argc, argv, &params)) return 1;
+
+    // --- Printer Pool ---
+    printer_pool_t printer_pool;
+    printer_pool_init(&printer_pool, params.consumer_count, params.printer_paper_capacity);
 
     // --- Thread argument structs ---
     job_thread_args_t job_receiver_args = {
@@ -66,11 +70,8 @@ int main(int argc, char *argv[]) {
         .all_jobs_arrived = &all_jobs_arrived
     };
 
-    // Concrete printer instances
-    printer_t printer1 = {.id = 1, .current_paper_count = params.printer_paper_capacity, .capacity = params.printer_paper_capacity, .total_papers_used = 0, .jobs_printed_count = 0};
-    printer_t printer2 = {.id = 2, .current_paper_count = params.printer_paper_capacity, .capacity = params.printer_paper_capacity, .total_papers_used = 0, .jobs_printed_count = 0};
-
-    printer_thread_args_t printer1_args = {
+    // Shared printer args template (printer pointer will be set by pool)
+    printer_thread_args_t shared_printer_args = {
         .paper_refill_queue_mutex = &paper_refill_queue_mutex,
         .job_queue_mutex = &job_queue_mutex,
         .stats_mutex = &stats_mutex,
@@ -85,11 +86,8 @@ int main(int argc, char *argv[]) {
         .stats = &stats,
         .all_jobs_served = &all_jobs_served,
         .all_jobs_arrived = &all_jobs_arrived,
-        .printer = &printer1
+        .printer = NULL // Set by printer_pool_start_printer
     };
-
-    printer_thread_args_t printer2_args = printer1_args;
-	printer2_args.printer = &printer2;
 
     paper_refill_thread_args_t paper_refill_args = {
         .paper_refill_queue_mutex = &paper_refill_queue_mutex,
@@ -101,6 +99,23 @@ int main(int argc, char *argv[]) {
         .params = &params,
         .stats = &stats,
         .all_jobs_served = &all_jobs_served
+    };
+
+    autoscaling_thread_args_t autoscaling_args = {
+        .job_queue_mutex = &job_queue_mutex,
+        .stats_mutex = &stats_mutex,
+        .simulation_state_mutex = &simulation_state_mutex,
+        .job_queue_not_empty_cv = &job_queue_not_empty_cv,
+        .refill_needed_cv = &refill_needed_cv,
+        .refill_supplier_cv = &refill_supplier_cv,
+        .paper_refill_thread = &paper_refill_thread,
+        .job_queue = &job_queue,
+        .paper_refill_queue = &paper_refill_queue,
+        .params = &params,
+        .stats = &stats,
+        .all_jobs_served = &all_jobs_served,
+        .all_jobs_arrived = &all_jobs_arrived,
+        .pool = &printer_pool
     };
 
     signal_catching_thread_args_t signal_catching_args = {
@@ -134,11 +149,18 @@ int main(int argc, char *argv[]) {
     // 2) Paper refiller (services refill requests)
     pthread_create(&paper_refill_thread, NULL, paper_refill_thread_func, &paper_refill_args);
 
-    // 3) Printers (consumers)
-    pthread_create(&printer1_thread, NULL, printer_thread_func, &printer1_args);
-    pthread_create(&printer2_thread, NULL, printer_thread_func, &printer2_args);
+    // 3) Start initial printers (minimum count)
+    for (int i = 1; i <= params.consumer_count; i++) {
+        printer_pool_start_printer(&printer_pool, i, &shared_printer_args);
+    }
 
-    // 4) Signal catcher (created last, after we have thread IDs to pass by pointer)
+    // 4) Autoscaling thread (if enabled)
+    if (params.auto_scaling) {
+        pthread_create(&autoscaling_thread, NULL, autoscaling_thread_func, &autoscaling_args);
+        if (g_debug) printf("Autoscaling enabled\n");
+    }
+
+    // 5) Signal catcher (created last, after we have thread IDs to pass by pointer)
     pthread_create(&signal_catching_thread, NULL, sig_int_catching_thread_func, &signal_catching_args);
 
     // --- Wait for threads to finish ---
@@ -146,15 +168,20 @@ int main(int argc, char *argv[]) {
     pthread_join(job_receiver_thread, NULL);
     if (g_debug) printf("job_receiver_thread joined\n");
 
-    // Join the printers
-    pthread_join(printer1_thread, NULL);
-    if (g_debug) printf("printer1 thread joined\n");
-    pthread_join(printer2_thread, NULL);
-    if (g_debug) printf("printer2 thread joined\n");
+    // Join all printers
+    printer_pool_join_all(&printer_pool);
+    if (g_debug) printf("all printer threads joined\n");
 
     // Join paper refiller
     pthread_join(paper_refill_thread, NULL);
     if (g_debug) printf("paper_refill_thread joined\n");
+
+    // Join autoscaling thread if it was started
+    if (params.auto_scaling) {
+        pthread_cancel(autoscaling_thread);
+        pthread_join(autoscaling_thread, NULL);
+        if (g_debug) printf("autoscaling thread joined\n");
+    }
 
     // Signal catcher might still be waiting for SIGINT; cancel and join
     pthread_cancel(signal_catching_thread);
@@ -164,6 +191,9 @@ int main(int argc, char *argv[]) {
     // --- Final logging ---
     emit_simulation_end(&stats);
     emit_statistics(&stats);
+
+    // --- Cleanup printer pool ---
+    printer_pool_destroy(&printer_pool);
 
     // --- Cleanup synchronization primitives ---
     pthread_mutex_destroy(&job_queue_mutex);

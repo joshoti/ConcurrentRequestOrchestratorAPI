@@ -43,27 +43,20 @@ static double calculate_average_queue_wait_time(simulation_statistics_t* stats) 
 }
 
 /**
- * @brief Calculates the average service time for Printer 1 in seconds.
+ * @brief Calculates the average service time for a specific printer in seconds.
  * @param stats Pointer to simulation_statistics_t struct.
- * @return Average service time for Printer 1 in seconds.
+ * @param printer_index Zero-based printer index (0 - MAX_PRINTERS-1 for printers 1 - MAX_PRINTERS).
+ * @return Average service time in seconds.
  */
-static double calculate_average_service_time_p1(simulation_statistics_t* stats) {
-    if (stats->jobs_served_by_printer1 == 0) {
+static double calculate_average_service_time(simulation_statistics_t* stats, int printer_index) {
+    if (printer_index < 0 || printer_index >= MAX_PRINTERS) {
         return 0.0;
     }
-    return ((double)stats->total_service_time_p1_us / 1000000.0) / stats->jobs_served_by_printer1;
-}
-
-/**
- * @brief Calculates the average service time for Printer 2 in seconds.
- * @param stats Pointer to simulation_statistics_t struct.
- * @return Average service time for Printer 2 in seconds.
- */
-static double calculate_average_service_time_p2(simulation_statistics_t* stats) {
-    if (stats->jobs_served_by_printer2 == 0) {
+    double jobs_served = stats->jobs_served_by_printer[printer_index];
+    if (jobs_served == 0) {
         return 0.0;
     }
-    return ((double)stats->total_service_time_p2_us / 1000000.0) / stats->jobs_served_by_printer2;
+    return ((double)stats->total_service_time_printer_us[printer_index] / 1000000.0) / jobs_served;
 }
 
 /**
@@ -97,27 +90,19 @@ static double calculate_system_time_std_dev(simulation_statistics_t* stats) {
 }
 
 /**
- * @brief Calculates the system utilization for Printer 1.
+ * @brief Calculates the system utilization for a specific printer.
  * @param stats Pointer to simulation_statistics_t struct.
- * @return Utilization of Printer 1 (a value between 0 and 1).
+ * @param printer_index Zero-based printer index (0 - MAX_PRINTERS-1 for printers 1 - MAX_PRINTERS).
+ * @return Utilization (a value between 0 and 1).
  */
-static double calculate_system_utilization_p1(simulation_statistics_t* stats) {
+static double calculate_system_utilization(simulation_statistics_t* stats, int printer_index) {
+    if (printer_index < 0 || printer_index >= MAX_PRINTERS) {
+        return 0.0;
+    }
     if (stats->simulation_duration_us == 0) {
         return 0.0;
     }
-    return ((double)stats->total_service_time_p1_us) / stats->simulation_duration_us;
-}
-
-/**
- * @brief Calculates the system utilization for Printer 2.
- * @param stats Pointer to simulation_statistics_t struct.
- * @return Utilization of Printer 2 (a value between 0 and 1).
- */
-static double calculate_system_utilization_p2(simulation_statistics_t* stats) {
-    if (stats->simulation_duration_us == 0) {
-        return 0.0;
-    }
-    return ((double)stats->total_service_time_p2_us) / stats->simulation_duration_us;
+    return ((double)stats->total_service_time_printer_us[printer_index]) / stats->simulation_duration_us;
 }
 
 /**
@@ -154,18 +139,14 @@ int write_statistics_to_buffer(simulation_statistics_t* stats, char* buf, int bu
     double avg_inter_arrival_time = calculate_average_inter_arrival_time(stats);
     double avg_system_time = calculate_average_system_time(stats);
     double avg_queue_wait_time = calculate_average_queue_wait_time(stats);
-    double avg_service_time_p1 = calculate_average_service_time_p1(stats);
-    double avg_service_time_p2 = calculate_average_service_time_p2(stats);
     double avg_queue_length = calculate_average_queue_length(stats);
     double system_time_std_dev = calculate_system_time_std_dev(stats);
-    double utilization_p1 = calculate_system_utilization_p1(stats);
-    double utilization_p2 = calculate_system_utilization_p2(stats);
     double job_arrival_rate = calculate_job_arrival_rate(stats);
     double job_drop_probability = calculate_job_drop_probability(stats);
     double simulation_time_sec = stats->simulation_duration_us / 1000000.0;
     
-    // Build comprehensive JSON statistics message
-    int len = snprintf(buf, buf_size,
+    // Start building JSON
+    int offset = snprintf(buf, buf_size,
         "{\"type\":\"statistics\", \"data\":{"
         "\"simulation_duration_sec\":%.3g,"
         "\"total_jobs_arrived\":%.0f,"
@@ -179,19 +160,7 @@ int write_statistics_to_buffer(simulation_statistics_t* stats, char* buf, int bu
         "\"system_time_std_dev_sec\":%.3g,"
         "\"avg_queue_wait_time_sec\":%.3g,"
         "\"avg_queue_length\":%.3g,"
-        "\"max_queue_length\":%u,"
-        "\"jobs_served_by_printer1\":%.0f,"
-        "\"printer1_paper_used\":%d,"
-        "\"jobs_served_by_printer2\":%.0f,"
-        "\"printer2_paper_used\":%d,"
-        "\"avg_service_time_p1_sec\":%.3g,"
-        "\"avg_service_time_p2_sec\":%.3g,"
-        "\"utilization_p1\":%.3g,"
-        "\"utilization_p2\":%.3g,"
-        "\"paper_refill_events\":%.0f,"
-        "\"total_refill_service_time_us\":%.3g,"
-        "\"papers_refilled\":%d"
-        "}}",
+        "\"max_queue_length\":%u,",
         simulation_time_sec,
         stats->total_jobs_arrived,
         stats->total_jobs_served,
@@ -204,21 +173,40 @@ int write_statistics_to_buffer(simulation_statistics_t* stats, char* buf, int bu
         system_time_std_dev,
         avg_queue_wait_time,
         avg_queue_length,
-        stats->max_job_queue_length,
-        stats->jobs_served_by_printer1,
-        stats->printer1_paper_used,
-        stats->jobs_served_by_printer2,
-        stats->printer2_paper_used,
-        avg_service_time_p1,
-        avg_service_time_p2,
-        utilization_p1,
-        utilization_p2,
+        stats->max_job_queue_length
+    );
+    
+    // Add dynamic printer statistics array
+    offset += snprintf(buf + offset, buf_size - offset, "\"printers\":[");
+    
+    int printers_to_report = stats->max_printers_used > 0 ? stats->max_printers_used : 2;
+    for (int i = 0; i < printers_to_report; i++) {
+        double avg_service_time = calculate_average_service_time(stats, i);
+        double utilization = calculate_system_utilization(stats, i);
+        
+        offset += snprintf(buf + offset, buf_size - offset,
+            "{\"id\":%d,\"jobs_served\":%.0f,\"paper_used\":%d,"
+            "\"avg_service_time_sec\":%.3g,\"utilization\":%.3g}%s",
+            i + 1,
+            stats->jobs_served_by_printer[i],
+            stats->printer_paper_used[i],
+            avg_service_time,
+            utilization,
+            (i < printers_to_report - 1) ? "," : ""
+        );
+    }
+    
+    // Close printers array and add paper refill stats
+    offset += snprintf(buf + offset, buf_size - offset,
+        "],\"paper_refill_events\":%.0f,"
+        "\"total_refill_service_time_sec\":%.3g,"
+        "\"papers_refilled\":%d}}",
         stats->paper_refill_events,
         stats->total_refill_service_time_us / 1000000.0,
         stats->papers_refilled
     );
 
-    return len;
+    return offset;
 }
 
 void log_statistics(simulation_statistics_t* stats) {
@@ -228,12 +216,8 @@ void log_statistics(simulation_statistics_t* stats) {
     double avg_inter_arrival_time = calculate_average_inter_arrival_time(stats);
     double avg_system_time = calculate_average_system_time(stats);
     double avg_queue_wait_time = calculate_average_queue_wait_time(stats);
-    double avg_service_time_p1 = calculate_average_service_time_p1(stats);
-    double avg_service_time_p2 = calculate_average_service_time_p2(stats);
     double avg_queue_length = calculate_average_queue_length(stats);
     double system_time_std_dev = calculate_system_time_std_dev(stats);
-    double utilization_p1 = calculate_system_utilization_p1(stats);
-    double utilization_p2 = calculate_system_utilization_p2(stats);
     double job_arrival_rate = calculate_job_arrival_rate(stats);
     double job_drop_probability = calculate_job_drop_probability(stats);
     double simulation_time_sec = stats->simulation_duration_us / 1000000.0;
@@ -264,14 +248,23 @@ void log_statistics(simulation_statistics_t* stats) {
     printf("Maximum Queue Length:              %u jobs\n", stats->max_job_queue_length);
     printf("\n");
     printf("--- Printer Statistics ---\n");
-    printf("Jobs Served by Printer 1:          %.0f\n", stats->jobs_served_by_printer1);
-    printf("Total Paper Used by Printer 1:     %d\n", stats->printer1_paper_used);
-    printf("Jobs Served by Printer 2:          %.0f\n", stats->jobs_served_by_printer2);
-    printf("Total Paper Used by Printer 2:     %d\n", stats->printer2_paper_used);
-    printf("Avg Service Time (Printer 1):      %.3g sec\n", avg_service_time_p1);
-    printf("Avg Service Time (Printer 2):      %.3g sec\n", avg_service_time_p2);
-    printf("Utilization (Printer 1):           %.3g%%\n", utilization_p1 * 100);
-    printf("Utilization (Printer 2):           %.3g%%\n", utilization_p2 * 100);
+    
+    // Dynamically report on printers that were actually used
+    int printers_to_report = stats->max_printers_used > 0 ? stats->max_printers_used : 2;
+    for (int i = 0; i < printers_to_report; i++) {
+        int printer_id = i + 1;
+        double jobs_served = stats->jobs_served_by_printer[i];
+        int paper_used = stats->printer_paper_used[i];
+        double avg_service_time = calculate_average_service_time(stats, i);
+        double utilization = calculate_system_utilization(stats, i);
+        
+        printf("Jobs Served by Printer %d:          %.0f\n", printer_id, jobs_served);
+        printf("Total Paper Used by Printer %d:     %d\n", printer_id, paper_used);
+        printf("Avg Service Time (Printer %d):      %.3g sec\n", printer_id, avg_service_time);
+        printf("Utilization (Printer %d):           %.3g%%\n", printer_id, utilization * 100);
+        if (i < printers_to_report - 1) printf("\n");
+    }
+    
     printf("\n");
     printf("--- Paper Management ---\n");
     printf("Paper Refill Events:               %.0f\n", stats->paper_refill_events);
