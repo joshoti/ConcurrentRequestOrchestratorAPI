@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "common.h"
+#include "config.h"
 #include "mongoose.h"
 #include "preprocessing.h"
 #include "linked_list.h"
@@ -247,24 +248,75 @@ static void fn(struct mg_connection *c, int ev, void *ev_data) {
 		if (mg_match(hm->uri, mg_str(s_ws_path_primary), NULL)) {
 			mg_ws_upgrade(c, hm, NULL);
 		} else if (mg_match(hm->uri, mg_str("/api/config"), NULL)) {
-			// Read and serve config.json
-			FILE *fp = fopen("config.json", "r");
-			if (fp) {
-				fseek(fp, 0, SEEK_END);
-				long fsize = ftell(fp);
-				fseek(fp, 0, SEEK_SET);
-				char *config_data = malloc(fsize + 1);
-				if (config_data) {
-					fread(config_data, 1, fsize, fp);
-					config_data[fsize] = 0;
-					mg_http_reply(c, 200, "Content-Type: application/json\r\n", "%s", config_data);
-					free(config_data);
-				} else {
-					mg_http_reply(c, 500, "Content-Type: text/plain\r\n", "Memory allocation failed");
-				}
-				fclose(fp);
+			// Build config JSON from C constants
+			char json_buffer[2048];
+			int len = snprintf(json_buffer, sizeof(json_buffer),
+				"{"
+				"\"config\":{"
+				"\"printRate\":%g,"
+				"\"consumerCount\":%d,"
+				"\"autoScaling\":%s,"
+				"\"refillRate\":%g,"
+				"\"paperCapacity\":%d,"
+				"\"jobArrivalTime\":%d,"
+				"\"jobCount\":%d,"
+				"\"fixedArrival\":%s,"
+				"\"minArrivalTime\":%d,"
+				"\"maxArrivalTime\":%d,"
+				"\"maxQueue\":%d,"
+				"\"minPapers\":%d,"
+				"\"maxPapers\":%d,"
+				"\"showTime\":%s,"
+				"\"showSimulationStats\":%s,"
+				"\"showLogs\":%s,"
+				"\"showComponents\":%s"
+				"},"
+				"\"ranges\":{"
+				"\"printRate\":{\"min\":%g,\"max\":%g},"
+				"\"consumerCount\":{\"min\":%d,\"max\":%d},"
+				"\"refillRate\":{\"min\":%g,\"max\":%g},"
+				"\"paperCapacity\":{\"min\":%d,\"max\":%d},"
+				"\"jobArrivalTime\":{\"min\":%d,\"max\":%d},"
+				"\"minArrivalTime\":{\"min\":%d,\"max\":%d},"
+				"\"maxArrivalTime\":{\"min\":%d,\"max\":%d},"
+				"\"minPapers\":{\"min\":%d,\"max\":%d},"
+				"\"maxPapers\":{\"min\":%d,\"max\":%d}"
+				"}"
+				"}",
+				// config values
+				CONFIG_DEFAULT_PRINT_RATE,
+				CONFIG_DEFAULT_CONSUMER_COUNT,
+				CONFIG_DEFAULT_AUTO_SCALING ? "true" : "false",
+				CONFIG_DEFAULT_REFILL_RATE,
+				CONFIG_DEFAULT_PAPER_CAPACITY,
+				CONFIG_DEFAULT_JOB_ARRIVAL_TIME,
+				CONFIG_DEFAULT_JOB_COUNT,
+				CONFIG_DEFAULT_FIXED_ARRIVAL ? "true" : "false",
+				CONFIG_DEFAULT_MIN_ARRIVAL_TIME,
+				CONFIG_DEFAULT_MAX_ARRIVAL_TIME,
+				CONFIG_DEFAULT_MAX_QUEUE,
+				CONFIG_DEFAULT_MIN_PAPERS,
+				CONFIG_DEFAULT_MAX_PAPERS,
+				CONFIG_DEFAULT_SHOW_TIME ? "true" : "false",
+				CONFIG_DEFAULT_SHOW_STATS ? "true" : "false",
+				CONFIG_DEFAULT_SHOW_LOGS ? "true" : "false",
+				CONFIG_DEFAULT_SHOW_COMPONENTS ? "true" : "false",
+				// ranges
+				CONFIG_RANGE_PRINT_RATE_MIN, CONFIG_RANGE_PRINT_RATE_MAX,
+				CONFIG_RANGE_CONSUMER_COUNT_MIN, CONFIG_RANGE_CONSUMER_COUNT_MAX,
+				CONFIG_RANGE_REFILL_RATE_MIN, CONFIG_RANGE_REFILL_RATE_MAX,
+				CONFIG_RANGE_PAPER_CAPACITY_MIN, CONFIG_RANGE_PAPER_CAPACITY_MAX,
+				CONFIG_RANGE_JOB_ARRIVAL_TIME_MIN, CONFIG_RANGE_JOB_ARRIVAL_TIME_MAX,
+				CONFIG_RANGE_MIN_ARRIVAL_TIME_MIN, CONFIG_RANGE_MIN_ARRIVAL_TIME_MAX,
+				CONFIG_RANGE_MAX_ARRIVAL_TIME_MIN, CONFIG_RANGE_MAX_ARRIVAL_TIME_MAX,
+				CONFIG_RANGE_MIN_PAPERS_MIN, CONFIG_RANGE_MIN_PAPERS_MAX,
+				CONFIG_RANGE_MAX_PAPERS_MIN, CONFIG_RANGE_MAX_PAPERS_MAX
+			);
+			
+			if (len > 0 && len < (int)sizeof(json_buffer)) {
+				mg_http_reply(c, 200, "Content-Type: application/json\r\n", "%s", json_buffer);
 			} else {
-				mg_http_reply(c, 404, "Content-Type: text/plain\r\n", "Config file not found");
+				mg_http_reply(c, 500, "Content-Type: text/plain\r\n", "Config buffer overflow");
 			}
 		} else {
 			// mg_http_reply(c, 200, "Content-Type: text/plain\r\n", "ConcurrentPrintService API\n");

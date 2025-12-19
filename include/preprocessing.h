@@ -18,7 +18,6 @@ typedef struct simulation_parameters {
     int num_jobs;
     int consumer_count;
     int auto_scaling;
-    int paper_count;
     int fixed_arrival;
     int min_arrival_time;
     int max_arrival_time;
@@ -35,12 +34,11 @@ typedef struct simulation_parameters {
  * num_jobs: 10 jobs (jobCount)
  * consumer_count: 2 printers (consumerCount)
  * auto_scaling: 0 (false)
- * paper_count: 50 pages (initial paperCount)
  * fixed_arrival: 1 (true, fixedArrival)
  * min_arrival_time: 300 ms (minArrivalTime)
  * max_arrival_time: 600 ms (maxArrivalTime)
  */
-#define SIMULATION_DEFAULT_PARAMS {500000, 5, 15, -1, 5, 150, 25, 10, 2, 0, 50, 1, 300, 600}
+#define SIMULATION_DEFAULT_PARAMS {500000, 5, 15, -1, 5, 150, 25, 10, 2, 0, 1, 300, 600}
 
 /**
  * @brief Print usage information for the program.

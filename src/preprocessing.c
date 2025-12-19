@@ -4,6 +4,7 @@
 #include <time.h>
 #include <math.h>
 #include "common.h"
+#include "config.h"
 #include "preprocessing.h"
 
 int g_debug = 0;
@@ -11,7 +12,7 @@ int g_terminate_now = 0;
 
 void usage() {
     fprintf(stderr, "usage: ./bin/cli [-debug] [-help] [-num num_jobs] [-q queue_capacity]\n");
-    fprintf(stderr, "                 [-p_cap printer_paper_capacity] [-p_count initial_paper_count]\n");
+    fprintf(stderr, "                 [-p_cap printer_paper_capacity]\n");
     fprintf(stderr, "                 [-s service_rate] [-ref refill_rate]\n");
     fprintf(stderr, "                 [-papers_lower papers_required_lower_bound]\n");
     fprintf(stderr, "                 [-papers_upper papers_required_upper_bound]\n");
@@ -73,61 +74,130 @@ int process_args(int argc, char *argv[], simulation_parameters_t* params) {
             exit(0); // successful early exit for help
         }
 
+        // Number of jobs to simulate
         if (strcmp(argv[i], "-num") == 0) {
             params->num_jobs = atoi(argv[++i]);
             if (!is_positive_integer("num_jobs", params->num_jobs)) return FALSE;
-        } else if (strcmp(argv[i], "-q") == 0) {
+        }
+        // Queue capacity
+        else if (strcmp(argv[i], "-q") == 0) {
             params->queue_capacity = atoi(argv[++i]);
             // -1 means unlimited, otherwise must be positive
-            if (params->queue_capacity != -1 && !is_positive_integer("queue_capacity", params->queue_capacity)) return FALSE;
-        } else if (strcmp(argv[i], "-papers_lower") == 0) {
+            if (params->queue_capacity != -1 
+                && !is_positive_integer("queue_capacity", params->queue_capacity)) return FALSE;
+        }
+        // Min papers required
+        else if (strcmp(argv[i], "-papers_lower") == 0) {
             params->papers_required_lower_bound = atoi(argv[++i]);
-            if (!is_in_range_int("papers_required_lower_bound", params->papers_required_lower_bound, 5, 10)) return FALSE;
-        } else if (strcmp(argv[i], "-papers_upper") == 0) {
+            if (!is_in_range_int(
+                "papers_required_lower_bound",
+                params->papers_required_lower_bound,
+                CONFIG_RANGE_MIN_PAPERS_MIN,
+                CONFIG_RANGE_MIN_PAPERS_MAX)
+            ) return FALSE;
+        }
+        // Max papers required
+        else if (strcmp(argv[i], "-papers_upper") == 0) {
             params->papers_required_upper_bound = atoi(argv[++i]);
-            if (!is_in_range_int("papers_required_upper_bound", params->papers_required_upper_bound, 15, 30)) return FALSE;
-        } else if (strcmp(argv[i], "-p_cap") == 0) {
+            if (!is_in_range_int(
+                "papers_required_upper_bound",
+                params->papers_required_upper_bound,
+                CONFIG_RANGE_MAX_PAPERS_MIN,
+                CONFIG_RANGE_MAX_PAPERS_MAX)
+            ) return FALSE;
+        }
+        // Printer paper capacity
+        else if (strcmp(argv[i], "-p_cap") == 0) {
             params->printer_paper_capacity = atoi(argv[++i]);
-            if (!is_in_range_int("printer_paper_capacity", params->printer_paper_capacity, 50, 200)) return FALSE;
-        } else if (strcmp(argv[i], "-p_count") == 0) {
-            params->paper_count = atoi(argv[++i]);
-            if (!is_in_range_int("paper_count", params->paper_count, 1, 100)) return FALSE;
-        } else if (strcmp(argv[i], "-s") == 0) {
+            if (!is_in_range_int(
+                "printer_paper_capacity",
+                params->printer_paper_capacity,
+                CONFIG_RANGE_PAPER_CAPACITY_MIN,
+                CONFIG_RANGE_PAPER_CAPACITY_MAX)
+            ) return FALSE;
+        }
+        // Service rate
+        else if (strcmp(argv[i], "-s") == 0) {
             double service_rate = atof(argv[++i]);
-            if (!is_in_range_double("service_rate", service_rate, 4.0, 10.0)) return FALSE;
+            if (!is_in_range_double(
+                "service_rate",
+                service_rate,
+                CONFIG_RANGE_PRINT_RATE_MIN,
+                CONFIG_RANGE_PRINT_RATE_MAX)
+            ) return FALSE;
             params->printing_rate = service_rate;
-        } else if (strcmp(argv[i], "-ref") == 0) {
+        }
+        // Refill rate
+        else if (strcmp(argv[i], "-ref") == 0) {
             params->refill_rate = atof(argv[++i]);
-            if (!is_in_range_double("refill_rate", params->refill_rate, 15.0, 30.0)) return FALSE;
-        } else if (strcmp(argv[i], "-consumers") == 0) {
+            if (!is_in_range_double(
+                "refill_rate",
+                params->refill_rate,
+                CONFIG_RANGE_REFILL_RATE_MIN,
+                CONFIG_RANGE_REFILL_RATE_MAX)
+            ) return FALSE;
+        }
+        // Consumer count
+        else if (strcmp(argv[i], "-consumers") == 0) {
             params->consumer_count = atoi(argv[++i]);
-            if (!is_in_range_int("consumer_count", params->consumer_count, 1, 5)) return FALSE;
-        } else if (strcmp(argv[i], "-auto_scale") == 0) {
+            if (!is_in_range_int(
+                "consumer_count",
+                params->consumer_count,
+                CONFIG_RANGE_CONSUMER_COUNT_MIN,
+                CONFIG_RANGE_CONSUMER_COUNT_MAX)
+            ) return FALSE;
+        }
+        // Auto-scaling
+        else if (strcmp(argv[i], "-auto_scale") == 0) {
             params->auto_scaling = atoi(argv[++i]);
             if (params->auto_scaling != 0 && params->auto_scaling != 1) {
                 fprintf(stderr, "Error: auto_scaling must be 0 or 1.\n");
                 return FALSE;
             }
-        } else if (strcmp(argv[i], "-fixed_arrival") == 0) {
+        }
+        // Fixed arrival time
+        else if (strcmp(argv[i], "-fixed_arrival") == 0) {
             params->fixed_arrival = atoi(argv[++i]);
             if (params->fixed_arrival != 0 && params->fixed_arrival != 1) {
                 fprintf(stderr, "Error: fixed_arrival must be 0 or 1.\n");
                 return FALSE;
             }
-        } else if (strcmp(argv[i], "-job_arr_time") == 0) {
+        }
+        // Job arrival time (ms)
+        else if (strcmp(argv[i], "-job_arr_time") == 0) {
             int job_arrival_time_ms = atoi(argv[++i]);
-            if (!is_in_range_int("job_arrival_time", job_arrival_time_ms, 200, 800)) return FALSE;
+            if (!is_in_range_int("job_arrival_time",
+                job_arrival_time_ms,
+                CONFIG_RANGE_JOB_ARRIVAL_TIME_MIN,
+                CONFIG_RANGE_JOB_ARRIVAL_TIME_MAX)
+            ) return FALSE;
             // Convert milliseconds to microseconds
             params->job_arrival_time_us = job_arrival_time_ms * 1000;
-        } else if (strcmp(argv[i], "-min_arr") == 0) {
+        }
+        // Min arrival time (ms)
+        else if (strcmp(argv[i], "-min_arr") == 0) {
             params->min_arrival_time = atoi(argv[++i]);
-            if (!is_in_range_int("min_arrival_time", params->min_arrival_time, 200, 400)) return FALSE;
-        } else if (strcmp(argv[i], "-max_arr") == 0) {
+            if (!is_in_range_int("min_arrival_time",
+                params->min_arrival_time,
+                CONFIG_RANGE_MIN_ARRIVAL_TIME_MIN,
+                CONFIG_RANGE_MIN_ARRIVAL_TIME_MAX)
+            ) return FALSE;
+        }
+        // Max arrival time (ms)
+        else if (strcmp(argv[i], "-max_arr") == 0) {
             params->max_arrival_time = atoi(argv[++i]);
-            if (!is_in_range_int("max_arrival_time", params->max_arrival_time, 500, 800)) return FALSE;
-        } else if (strcmp(argv[i], "-debug") == 0) {
+            if (!is_in_range_int("max_arrival_time",
+                params->max_arrival_time,
+                CONFIG_RANGE_MAX_ARRIVAL_TIME_MIN,
+                CONFIG_RANGE_MAX_ARRIVAL_TIME_MAX)
+            ) return FALSE;
+        }
+        // Debug mode
+        else if (strcmp(argv[i], "-debug") == 0) {
             g_debug = 1;
-        } else {
+        }
+        // Unrecognized argument
+        else {
             fprintf(stderr, "Error: unrecognized argument %s.\n", argv[i]);
             usage();
             return FALSE;
