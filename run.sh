@@ -1,2 +1,2 @@
 make
-./cli -debug -num 3
+./bin/cli -debug -num 3

@@ -246,6 +246,26 @@ static void fn(struct mg_connection *c, int ev, void *ev_data) {
 		struct mg_http_message *hm = (struct mg_http_message *) ev_data;
 		if (mg_match(hm->uri, mg_str(s_ws_path_primary), NULL)) {
 			mg_ws_upgrade(c, hm, NULL);
+		} else if (mg_match(hm->uri, mg_str("/api/config"), NULL)) {
+			// Read and serve config.json
+			FILE *fp = fopen("config.json", "r");
+			if (fp) {
+				fseek(fp, 0, SEEK_END);
+				long fsize = ftell(fp);
+				fseek(fp, 0, SEEK_SET);
+				char *config_data = malloc(fsize + 1);
+				if (config_data) {
+					fread(config_data, 1, fsize, fp);
+					config_data[fsize] = 0;
+					mg_http_reply(c, 200, "Content-Type: application/json\r\n", "%s", config_data);
+					free(config_data);
+				} else {
+					mg_http_reply(c, 500, "Content-Type: text/plain\r\n", "Memory allocation failed");
+				}
+				fclose(fp);
+			} else {
+				mg_http_reply(c, 404, "Content-Type: text/plain\r\n", "Config file not found");
+			}
 		} else {
 			// mg_http_reply(c, 200, "Content-Type: text/plain\r\n", "ConcurrentPrintService API\n");
             struct mg_http_serve_opts opts = {.root_dir = s_web_root};
