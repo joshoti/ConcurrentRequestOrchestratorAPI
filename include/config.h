@@ -79,4 +79,28 @@
 #define CONFIG_RANGE_MAX_PAPERS_MIN         15
 #define CONFIG_RANGE_MAX_PAPERS_MAX         30
 
+// ============================================================================
+// AUTOSCALING CONFIGURATION
+// ============================================================================
+
+// Cooldown period after scaling (microseconds) - prevents rapid oscillation
+#define CONFIG_AUTOSCALE_COOLDOWN_US        3000000  // 3 seconds
+
+// Scale-down sustained period (microseconds) - queue must be low for this long
+#define CONFIG_AUTOSCALE_SCALE_DOWN_WAIT_US 5000000  // 5 seconds
+
+// Idle printer timeout (microseconds) - printer must be idle this long to be removed
+#define CONFIG_AUTOSCALE_IDLE_TIMEOUT_US    5000000  // 5 seconds
+
+// Scale-down queue threshold
+#define CONFIG_AUTOSCALE_SCALE_DOWN_THRESHOLD  5
+
+// Autoscaling monitoring interval (microseconds)
+#define CONFIG_AUTOSCALE_CHECK_INTERVAL_US  1000000  // 1 second
+
+// Stepped scale-up thresholds (queue length based on active printer count)
+#define CONFIG_AUTOSCALE_THRESHOLD_2_PRINTERS  10
+#define CONFIG_AUTOSCALE_THRESHOLD_3_PRINTERS  15
+#define CONFIG_AUTOSCALE_THRESHOLD_4_PRINTERS  20
+
 #endif // CONFIG_H
