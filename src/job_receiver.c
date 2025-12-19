@@ -124,7 +124,8 @@ void* job_receiver_thread_func(void* arg) {
         pthread_mutex_lock(job_queue_mutex);
 
         int queue_length = timed_queue_length(job_queue);
-        if (queue_length >= params->queue_capacity) {
+        // Only check capacity if it's not unlimited (-1)
+        if (params->queue_capacity != -1 && queue_length >= params->queue_capacity) {
             // Drop the job
             pthread_mutex_unlock(job_queue_mutex);
             unsigned long temp_arrival_time_us = job->system_arrival_time_us; // store before freeing
