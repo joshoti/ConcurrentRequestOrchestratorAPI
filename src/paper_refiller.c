@@ -76,7 +76,13 @@ void* paper_refill_thread_func(void* arg) {
         // Refill paper
         int papers_needed = printer->capacity - printer->current_paper_count;
         if (papers_needed <= 0) {
-            if (g_debug) printf("Debug: Paper Refiller found printer %d already full\n", printer->id);
+            if (g_debug) printf("Debug: Paper Refiller found printer %d already full, skipping refill\n", printer->id);
+            free(elem);
+            // Still broadcast to wake up any waiting printers
+            pthread_mutex_lock(args->paper_refill_queue_mutex);
+            pthread_cond_broadcast(args->refill_needed_cv);
+            pthread_mutex_unlock(args->paper_refill_queue_mutex);
+            continue;
         }
 
         int time_to_refill_us = (unsigned long)((papers_needed / args->params->refill_rate) * 1000000);
