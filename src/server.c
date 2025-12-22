@@ -214,6 +214,9 @@ static void* simulation_runner(void* arg) {
 	emit_simulation_end(&ctx->stats);
 	emit_statistics(&ctx->stats);
 
+	// Clear stats
+	ctx->stats = (simulation_statistics_t){0};
+
 	pthread_mutex_lock(&g_server_state_mutex);
 	ctx->is_running = 0;
 	pthread_mutex_unlock(&g_server_state_mutex);
