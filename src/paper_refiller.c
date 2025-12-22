@@ -8,6 +8,7 @@
 #include "timeutils.h"
 #include "printer.h"
 #include "linked_list.h"
+#include "timed_queue.h"
 #include "preprocessing.h"
 #include "log_router.h"
 #include "simulation_stats.h"
@@ -95,13 +96,14 @@ void* paper_refill_thread_func(void* arg) {
         unsigned long refill_end_time_us = get_time_in_us();
         int refill_duration_us = refill_end_time_us - refill_start_time_us;
         emit_paper_refill_end(printer, refill_duration_us, refill_end_time_us);
-
+        
         // Done refilling: update printer state and simulation stats
         printer->current_paper_count += papers_needed;
         pthread_mutex_lock(args->stats_mutex);
         args->stats->papers_refilled += papers_needed;
         args->stats->total_refill_service_time_us += refill_end_time_us - refill_start_time_us;
         args->stats->paper_refill_events++;
+        emit_stats_update(args->stats, timed_queue_length(args->job_queue));
         pthread_mutex_unlock(args->stats_mutex);
         free(elem);
         if (g_debug) debug_refiller(papers_needed);

@@ -20,12 +20,9 @@ int test_create_simulation_stats(simulation_statistics_t* stats) {
     stats->total_queue_wait_time_us = 400000; // total wait time in queue
     stats->area_num_in_job_queue_us = 2000000; // integral of queue length over time
     stats->max_job_queue_length = 5;
-    stats->jobs_served_by_printer1 = 5;
-    stats->total_service_time_p1_us = 500000; // total service time for printer 1
-    stats->printer1_paper_empty_time_us = 100000; // paper empty time for printer 1
-    stats->jobs_served_by_printer2 = 3;
-    stats->total_service_time_p2_us = 300000; // total service time for printer 2
-    stats->printer2_paper_empty_time_us = 50000; // paper empty time for printer 2
+    // total jobs served by printer [1-5]
+    // total service time for printer [1-5]
+    // paper empty time for printer [1-5]
     stats->paper_refill_events = 2;
     stats->total_refill_service_time_us = 20000; // total refill service time
     stats->papers_refilled = 15;

@@ -96,6 +96,7 @@ int main(int argc, char *argv[]) {
         .refill_needed_cv = &refill_needed_cv,
         .refill_supplier_cv = &refill_supplier_cv,
         .paper_refill_queue = &paper_refill_queue,
+        .job_queue = &job_queue,
         .params = &params,
         .stats = &stats,
         .all_jobs_served = &all_jobs_served

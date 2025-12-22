@@ -70,6 +70,7 @@ void* printer_thread_func(void* arg) {
             pthread_mutex_lock(args->paper_refill_queue_mutex);
             unsigned long refill_start_time_us = get_time_in_us();
             emit_paper_empty(args->printer, job_to_dequeue->id, refill_start_time_us);
+            emit_printer_waiting_refill(args->printer);
             list_append(args->paper_refill_queue, args->printer);
             pthread_cond_broadcast(args->refill_supplier_cv); // Notify refill thread
             
@@ -87,6 +88,9 @@ void* printer_thread_func(void* arg) {
                 }
             }
             pthread_mutex_unlock(args->paper_refill_queue_mutex);
+
+            // Printer is no longer waiting for refill
+            emit_printer_idle(args->printer);
             
             // Update stats for paper empty duration
             pthread_mutex_lock(args->stats_mutex);
@@ -97,15 +101,7 @@ void* printer_thread_func(void* arg) {
             if (idx >= 0 && idx < MAX_PRINTERS) {
                 args->stats->printer_paper_empty_time_us[idx] += paper_empty_duration_us;
             }
-            
-            // Keep backwards compatibility
-            if (args->printer->id == 1) {
-                args->stats->printer1_paper_empty_time_us +=
-                    paper_empty_duration_us; // stats: total time printer 1 was idle due to no paper
-            } else if (args->printer->id == 2) {
-                args->stats->printer2_paper_empty_time_us +=
-                    paper_empty_duration_us; // stats: total time printer 2 was idle due to no paper
-            }
+
             pthread_mutex_unlock(args->stats_mutex);
             continue;
         }
@@ -116,6 +112,8 @@ void* printer_thread_func(void* arg) {
         job_t* job = (job_t*)elem->data;
         job->queue_departure_time_us = get_time_in_us();
         emit_queue_departure(job, args->stats, args->job_queue, queue_last_interaction_time_us);
+        emit_job_update(job);
+        emit_stats_update(args->stats, timed_queue_length(args->job_queue));
 
         pthread_mutex_unlock(args->job_queue_mutex);
 
@@ -129,7 +127,7 @@ void* printer_thread_func(void* arg) {
 
         // Service the job
         args->printer->is_idle = 0; // Mark as busy
-        emit_printer_busy(args->printer, get_time_in_us(), job->id);
+        emit_printer_busy(args->printer, job->id);
         usleep(job->service_time_requested_ms * 1000); // Convert ms to us
         args->printer->current_paper_count -= job->papers_required;
         args->printer->total_papers_used += job->papers_required;
@@ -140,13 +138,14 @@ void* printer_thread_func(void* arg) {
         // Track completion time for idle detection
         args->printer->last_job_completion_time_us = job->service_departure_time_us;
         args->printer->is_idle = 1; // Mark as idle
-        emit_printer_idle(args->printer, job->service_departure_time_us, job->id);
+        emit_printer_idle(args->printer);
 
         // Update stats
         pthread_mutex_lock(args->stats_mutex);
         args->printer->jobs_printed_count++;
         // Log job departure from system and update stats
         emit_system_departure(job, args->printer, args->stats);
+        emit_stats_update(args->stats, timed_queue_length(args->job_queue));
         pthread_mutex_unlock(args->stats_mutex);
 
         // Free job resources
@@ -231,8 +230,8 @@ int printer_pool_start_printer(printer_pool_t* pool, int printer_id, const print
         pool->printers[index].active = 1;
         pool->active_count++;
         
-        // Emit idle status for newly started printer (no job yet, so job_id = -1)
-        emit_printer_idle(&pool->printers[index].printer, get_time_in_us(), -1);
+        // Emit idle status for newly started printer (no job yet)
+        emit_printer_idle(&pool->printers[index].printer);
         
         return 1;
     }

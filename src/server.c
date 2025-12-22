@@ -169,6 +169,7 @@ static void* simulation_runner(void* arg) {
 		.refill_needed_cv = &ctx->refill_needed_cv,
 		.refill_supplier_cv = &ctx->refill_supplier_cv,
 		.paper_refill_queue = &ctx->paper_refill_queue,
+		.job_queue = &ctx->job_queue,
 		.params = &ctx->params,
 		.stats = &ctx->stats,
 		.all_jobs_served = &ctx->all_jobs_served

@@ -30,7 +30,7 @@ typedef struct log_ops {
                           struct timed_queue* job_queue, unsigned long last_interaction_time_us);
     void (*queue_departure)(const struct job* job, struct simulation_statistics* stats,
                             struct timed_queue* job_queue, unsigned long last_interaction_time_us);
-    void (*job_update)(const struct job* job, int queue_length);
+    void (*job_update)(const struct job* job);
 
     void (*printer_arrival)(const struct job* job, const struct printer* printer);
     void (*system_departure)(const struct job* job, const struct printer* printer,
@@ -44,8 +44,9 @@ typedef struct log_ops {
 
     void (*scale_up)(int new_printer_count, int queue_length, unsigned long current_time_us);
     void (*scale_down)(int new_printer_count, int queue_length, unsigned long current_time_us);
-    void (*printer_idle)(const struct printer* printer, unsigned long current_time_us, int job_id);
-    void (*printer_busy)(const struct printer* printer, unsigned long current_time_us, int job_id);
+    void (*printer_idle)(const struct printer* printer);
+    void (*printer_busy)(const struct printer* printer, int job_id);
+    void (*printer_waiting_refill)(const struct printer* printer);
     void (*stats_update)(struct simulation_statistics* stats, int queue_length);
 
     void (*simulation_stopped)(struct simulation_statistics* stats);
@@ -150,9 +151,8 @@ void emit_queue_departure(const struct job* job, struct simulation_statistics* s
  * Routes to the active logger (console or websocket).
  * 
  * @param job The job to broadcast (id and papers required).
- * @param queue_length The current queue length.
  */
-void emit_job_update(const struct job* job, int queue_length);
+void emit_job_update(const struct job* job);
 
 /**
  * @brief Emits an event when a job arrives at a printer for processing.
@@ -232,20 +232,25 @@ void emit_scale_down(int new_printer_count, int queue_length, unsigned long curr
  * Routes to the active logger (console or websocket).
  * 
  * @param printer The printer that is now idle.
- * @param current_time_us The current simulation time in microseconds.
- * @param job_id The id of the job that was just completed (or -1 if newly started).
  */
-void emit_printer_idle(const struct printer* printer, unsigned long current_time_us, int job_id);
+void emit_printer_idle(const struct printer* printer);
 
 /**
  * @brief Emits an event when a printer becomes busy.
  * Routes to the active logger (console or websocket).
  * 
  * @param printer The printer that is now busy.
- * @param current_time_us The current simulation time in microseconds.
  * @param job_id The id of the job being served.
  */
-void emit_printer_busy(const struct printer* printer, unsigned long current_time_us, int job_id);
+void emit_printer_busy(const struct printer* printer, int job_id);
+
+/**
+ * @brief Emits an event when a printer is waiting for a paper refill.
+ * Routes to the active logger (console or websocket).
+ * 
+ * @param printer The printer that is waiting for refill.
+ */
+void emit_printer_waiting_refill(const struct printer* printer);
 
 /**
  * @brief Emits real-time statistics update for frontend dashboard.

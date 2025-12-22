@@ -144,12 +144,11 @@ static void publish_queue_departure(const job_t* job, simulation_statistics_t* s
     ws_bridge_send_json_from_any_thread(buf, strlen(buf));
 }
 
-static void publish_job_update(const job_t* job, int queue_length) {
+static void publish_job_update(const job_t* job) {
     char buf[512];
-    
-    sprintf(buf, "{\"type\":\"job_update\", \"data\":{\"id\":%d, \"papersRequired\":%d, \"queueLength\":%d}}", 
-            job->id, job->papers_required, queue_length);
-    
+
+    sprintf(buf, "{\"type\":\"job_update\", \"data\":{\"id\":%d, \"papersRequired\":%d}}", 
+            job->id, job->papers_required);
     ws_bridge_send_json_from_any_thread(buf, strlen(buf));
 }
 
@@ -174,13 +173,20 @@ static void publish_system_departure(const job_t* job, const printer_t* printer,
     stats->total_jobs_served += 1; // stats: total jobs served
 
     int service_duration = job->service_departure_time_us - job->service_arrival_time_us;
-    if (printer->id == 1) {
-        stats->total_service_time_p1_us += service_duration; // stats: avg job service time
-        stats->jobs_served_by_printer1 += 1; // stats: total jobs served by printer 1
-    } else if (printer->id == 2) {
-        stats->total_service_time_p2_us += service_duration; // stats: avg job service time
-        stats->jobs_served_by_printer2 += 1; // stats: total jobs served by printer 2
+
+    // Track in array format (0-indexed)
+    int idx = printer->id - 1;
+    if (idx >= 0 && idx < MAX_PRINTERS) {
+        stats->jobs_served_by_printer[idx] += 1;
+        stats->printer_paper_used[idx] += job->papers_required;
+        stats->total_service_time_printer_us[idx] += service_duration;
+        
+        // Update max_printers_used
+        if (printer->id > stats->max_printers_used) {
+            stats->max_printers_used = printer->id;
+        }
     }
+
     stats->total_queue_wait_time_us +=
         (job->queue_departure_time_us - job->queue_arrival_time_us); // stats: avg job queue wait time
 
@@ -260,19 +266,27 @@ static void publish_scale_down(int new_printer_count, int queue_length, unsigned
     ws_bridge_send_json_from_any_thread(buf, strlen(buf));
 }
 
-static void publish_printer_idle(const printer_t* printer, unsigned long current_time_us, int job_id) {
+static void publish_printer_idle(const printer_t* printer) {
     char buf[1024];
     
-    sprintf(buf, "{\"type\":\"consumer_update\", \"data\":{\"id\":%d, \"papersLeft\":%d, \"status\":\"idle\", \"currentJobId\":%d}}",
-        printer->id, printer->current_paper_count, job_id);
+    sprintf(buf, "{\"type\":\"consumer_update\", \"data\":{\"id\":%d, \"papersLeft\":%d, \"status\":\"idle\"}}",
+        printer->id, printer->current_paper_count);
     ws_bridge_send_json_from_any_thread(buf, strlen(buf));
 }
 
-static void publish_printer_busy(const printer_t* printer, unsigned long current_time_us, int job_id) {
+static void publish_printer_busy(const printer_t* printer, int job_id) {
     char buf[1024];
 
     sprintf(buf, "{\"type\":\"consumer_update\", \"data\":{\"id\":%d, \"papersLeft\":%d, \"status\":\"serving\", \"currentJobId\":%d}}",
         printer->id, printer->current_paper_count, job_id);
+    ws_bridge_send_json_from_any_thread(buf, strlen(buf));
+}
+
+static void publish_printer_waiting_refill(const printer_t* printer) {
+    char buf[1024];
+
+    sprintf(buf, "{\"type\":\"consumer_update\", \"data\":{\"id\":%d, \"papersLeft\":%d, \"status\":\"waiting_refill\"}}",
+        printer->id, printer->current_paper_count);
     ws_bridge_send_json_from_any_thread(buf, strlen(buf));
 }
 
@@ -320,6 +334,7 @@ void websocket_handler_register(void) {
         .scale_down = publish_scale_down,
         .printer_idle = publish_printer_idle,
         .printer_busy = publish_printer_busy,
+        .printer_waiting_refill = publish_printer_waiting_refill,
         .stats_update = publish_stats_update,
         .simulation_stopped = publish_simulation_stopped,
         .statistics = publish_statistics,

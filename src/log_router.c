@@ -64,8 +64,8 @@ void emit_queue_departure(const struct job* job, struct simulation_statistics* s
     if (logger && has(logger->queue_departure)) logger->queue_departure(job, stats, job_queue, last_interaction_time_us);
 }
 
-void emit_job_update(const struct job* job, int queue_length) {
-    if (logger && has(logger->job_update)) logger->job_update(job, queue_length);
+void emit_job_update(const struct job* job) {
+    if (logger && has(logger->job_update)) logger->job_update(job);
 }
 
 void emit_printer_arrival(const struct job* job, const struct printer* printer) {
@@ -99,12 +99,16 @@ void emit_scale_down(int new_printer_count, int queue_length, unsigned long curr
     if (logger && has(logger->scale_down)) logger->scale_down(new_printer_count, queue_length, current_time_us);
 }
 
-void emit_printer_idle(const struct printer* printer, unsigned long current_time_us, int job_id) {
-    if (logger && has(logger->printer_idle)) logger->printer_idle(printer, current_time_us, job_id);
+void emit_printer_idle(const struct printer* printer) {
+    if (logger && has(logger->printer_idle)) logger->printer_idle(printer);
 }
 
-void emit_printer_busy(const struct printer* printer, unsigned long current_time_us, int job_id) {
-    if (logger && has(logger->printer_busy)) logger->printer_busy(printer, current_time_us, job_id);
+void emit_printer_busy(const struct printer* printer, int job_id) {
+    if (logger && has(logger->printer_busy)) logger->printer_busy(printer, job_id);
+}
+
+void emit_printer_waiting_refill(const struct printer* printer) {
+    if (logger && has(logger->printer_waiting_refill)) logger->printer_waiting_refill(printer);
 }
 
 void emit_stats_update(struct simulation_statistics* stats, int queue_length) {

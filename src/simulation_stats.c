@@ -315,12 +315,9 @@ void debug_statistics(const simulation_statistics_t* stats) {
     printf("total_queue_wait_time_us: %lu\n", stats->total_queue_wait_time_us);
     printf("area_num_in_job_queue_us: %lu\n", stats->area_num_in_job_queue_us);
     printf("max_job_queue_length: %u\n", stats->max_job_queue_length);
-    printf("jobs_served_by_printer1: %.0f\n", stats->jobs_served_by_printer1);
-    printf("total_service_time_p1_us: %lu\n", stats->total_service_time_p1_us);
-    printf("printer1_paper_empty_time_us: %lu\n", stats->printer1_paper_empty_time_us);
-    printf("jobs_served_by_printer2: %.0f\n", stats->jobs_served_by_printer2);
-    printf("total_service_time_p2_us: %lu\n", stats->total_service_time_p2_us);
-    printf("printer2_paper_empty_time_us: %lu\n", stats->printer2_paper_empty_time_us);
+    // total jobs served by printer [1-5]
+    // total service time for printer [1-5]
+    // paper empty time for printer [1-5]
     printf("paper_refill_events: %.0f\n", stats->paper_refill_events);
     printf("total_refill_service_time_us: %lu\n", stats->total_refill_service_time_us);
     printf("papers_refilled: %d\n", stats->papers_refilled);

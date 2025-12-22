@@ -118,6 +118,7 @@ void* job_receiver_thread_func(void* arg) {
         job->system_arrival_time_us = get_time_in_us();
         pthread_mutex_lock(stats_mutex);
         emit_system_arrival(job, previous_job_arrival_time_us, stats);
+        emit_stats_update(stats, timed_queue_length(job_queue));
         pthread_mutex_unlock(stats_mutex);
         
         // Check if job should be dropped (e.g., if queue is full)
@@ -148,6 +149,8 @@ void* job_receiver_thread_func(void* arg) {
         stats->max_job_queue_length = 
             (queue_length > stats->max_job_queue_length) ? (queue_length) : stats->max_job_queue_length;
         emit_queue_arrival(job, stats, job_queue, queue_last_interaction_time_us);
+        emit_job_update(job);
+        emit_stats_update(stats, timed_queue_length(job_queue));
         pthread_mutex_unlock(stats_mutex);
         
         previous_job_arrival_time_us = job->system_arrival_time_us;

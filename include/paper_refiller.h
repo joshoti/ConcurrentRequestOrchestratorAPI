@@ -6,6 +6,7 @@
 struct linked_list;
 struct simulation_parameters;
 struct simulation_statistics;
+struct timed_queue;
 
 // --- Utility functions ---
 /**
@@ -26,6 +27,7 @@ typedef struct paper_refill_thread_args {
     pthread_cond_t* refill_needed_cv;
     pthread_cond_t* refill_supplier_cv;
     struct linked_list* paper_refill_queue;
+    struct timed_queue* job_queue;
     struct simulation_parameters* params;
     struct simulation_statistics* stats;
     int* all_jobs_served;
