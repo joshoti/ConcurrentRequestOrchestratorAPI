@@ -129,7 +129,7 @@ void* printer_thread_func(void* arg) {
 
         // Service the job
         args->printer->is_idle = 0; // Mark as busy
-        emit_printer_busy(args->printer, get_time_in_us());
+        emit_printer_busy(args->printer, get_time_in_us(), job->id);
         usleep(job->service_time_requested_ms * 1000); // Convert ms to us
         args->printer->current_paper_count -= job->papers_required;
         args->printer->total_papers_used += job->papers_required;
@@ -140,7 +140,7 @@ void* printer_thread_func(void* arg) {
         // Track completion time for idle detection
         args->printer->last_job_completion_time_us = job->service_departure_time_us;
         args->printer->is_idle = 1; // Mark as idle
-        emit_printer_idle(args->printer, job->service_departure_time_us);
+        emit_printer_idle(args->printer, job->service_departure_time_us, job->id);
 
         // Update stats
         pthread_mutex_lock(args->stats_mutex);
@@ -230,6 +230,10 @@ int printer_pool_start_printer(printer_pool_t* pool, int printer_id, const print
     if (result == 0) {
         pool->printers[index].active = 1;
         pool->active_count++;
+        
+        // Emit idle status for newly started printer (no job yet, so job_id = -1)
+        emit_printer_idle(&pool->printers[index].printer, get_time_in_us(), -1);
+        
         return 1;
     }
     

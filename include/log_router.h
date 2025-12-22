@@ -30,6 +30,7 @@ typedef struct log_ops {
                           struct timed_queue* job_queue, unsigned long last_interaction_time_us);
     void (*queue_departure)(const struct job* job, struct simulation_statistics* stats,
                             struct timed_queue* job_queue, unsigned long last_interaction_time_us);
+    void (*job_update)(const struct job* job, int queue_length);
 
     void (*printer_arrival)(const struct job* job, const struct printer* printer);
     void (*system_departure)(const struct job* job, const struct printer* printer,
@@ -43,8 +44,8 @@ typedef struct log_ops {
 
     void (*scale_up)(int new_printer_count, int queue_length, unsigned long current_time_us);
     void (*scale_down)(int new_printer_count, int queue_length, unsigned long current_time_us);
-    void (*printer_idle)(const struct printer* printer, unsigned long current_time_us);
-    void (*printer_busy)(const struct printer* printer, unsigned long current_time_us);
+    void (*printer_idle)(const struct printer* printer, unsigned long current_time_us, int job_id);
+    void (*printer_busy)(const struct printer* printer, unsigned long current_time_us, int job_id);
 
     void (*simulation_stopped)(struct simulation_statistics* stats);
     void (*statistics)(struct simulation_statistics* stats);
@@ -76,6 +77,7 @@ void emit_queue_arrival(const struct job* job, struct simulation_statistics* sta
                         struct timed_queue* job_queue, unsigned long last_interaction_time_us);
 void emit_queue_departure(const struct job* job, struct simulation_statistics* stats,
                           struct timed_queue* job_queue, unsigned long last_interaction_time_us);
+void emit_job_update(const struct job* job, int queue_length);
 void emit_printer_arrival(const struct job* job, const struct printer* printer);
 void emit_system_departure(const struct job* job, const struct printer* printer,
                            struct simulation_statistics* stats);
@@ -86,8 +88,8 @@ void emit_paper_refill_end(struct printer* printer, int refill_duration_us,
                            unsigned long current_time_us);
 void emit_scale_up(int new_printer_count, int queue_length, unsigned long current_time_us);
 void emit_scale_down(int new_printer_count, int queue_length, unsigned long current_time_us);
-void emit_printer_idle(const struct printer* printer, unsigned long current_time_us);
-void emit_printer_busy(const struct printer* printer, unsigned long current_time_us);
+void emit_printer_idle(const struct printer* printer, unsigned long current_time_us, int job_id);
+void emit_printer_busy(const struct printer* printer, unsigned long current_time_us, int job_id);
 void emit_simulation_stopped(struct simulation_statistics* stats);
 void emit_statistics(struct simulation_statistics* stats);
 

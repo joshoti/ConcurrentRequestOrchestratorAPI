@@ -269,6 +269,7 @@ void console_handler_register(void) {
         .removed_job = log_removed_job,
         .queue_arrival = log_queue_arrival,
         .queue_departure = log_queue_departure,
+        .job_update = NULL, // not needed for console logging
         .printer_arrival = log_printer_arrival,
         .system_departure = log_system_departure,
         .paper_empty = log_paper_empty,
