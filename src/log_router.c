@@ -107,6 +107,10 @@ void emit_printer_busy(const struct printer* printer, unsigned long current_time
     if (logger && has(logger->printer_busy)) logger->printer_busy(printer, current_time_us, job_id);
 }
 
+void emit_stats_update(struct simulation_statistics* stats, int queue_length) {
+    if (logger && has(logger->stats_update)) logger->stats_update(stats, queue_length);
+}
+
 void emit_simulation_stopped(struct simulation_statistics* stats) {
     if (logger && has(logger->simulation_stopped)) logger->simulation_stopped(stats);
 }

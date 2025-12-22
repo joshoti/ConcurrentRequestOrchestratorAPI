@@ -5,6 +5,7 @@
 
 #include "simulation_stats.h"
 
+
 // --- Private Helper Functions ---
 /**
  * @brief Calculates the average inter-arrival time in seconds.
@@ -16,18 +17,6 @@ static double calculate_average_inter_arrival_time(simulation_statistics_t* stat
         return 0.0;
     }
     return ((double)stats->total_inter_arrival_time_us / 1000000.0) / (stats->total_jobs_arrived - 1);
-}
-
-/**
- * @brief Calculates the average system time in seconds.
- * @param stats Pointer to simulation_statistics_t struct.
- * @return Average system time in seconds.
- */
-static double calculate_average_system_time(simulation_statistics_t* stats) {
-    if (stats->total_jobs_served == 0) {
-        return 0.0;
-    }
-    return ((double)stats->total_system_time_us / 1000000.0) / stats->total_jobs_served;
 }
 
 /**
@@ -130,6 +119,7 @@ static double calculate_job_drop_probability(simulation_statistics_t* stats) {
     }
     return stats->total_jobs_dropped / stats->total_jobs_arrived;
 }
+
 
 // --- Public API Function Implementations ---
 int write_statistics_to_buffer(simulation_statistics_t* stats, char* buf, int buf_size) {
@@ -273,6 +263,36 @@ void log_statistics(simulation_statistics_t* stats) {
     printf("=========================================================\n");
     
     funlockfile(stdout);
+}
+
+double calculate_average_system_time(simulation_statistics_t* stats) {
+    if (stats->total_jobs_served == 0) {
+        return 0.0;
+    }
+    return ((double)stats->total_system_time_us / 1000000.0) / stats->total_jobs_served;
+}
+
+int calculate_total_papers_used(simulation_statistics_t* stats) {
+    if (stats == NULL) return 0;
+    
+    int total = 0;
+    for (int i = 0; i < stats->max_printers_used && i < MAX_PRINTERS; i++) {
+        total += stats->printer_paper_used[i];
+    }
+    return total;
+}
+
+double calculate_overall_average_service_time(simulation_statistics_t* stats) {
+    if (stats == NULL || stats->total_jobs_served == 0) {
+        return 0.0;
+    }
+    
+    unsigned long total_service_time = 0;
+    for (int i = 0; i < stats->max_printers_used && i < MAX_PRINTERS; i++) {
+        total_service_time += stats->total_service_time_printer_us[i];
+    }
+    
+    return (total_service_time / stats->total_jobs_served) / 1000000.0;
 }
 
 void debug_statistics(const simulation_statistics_t* stats) {

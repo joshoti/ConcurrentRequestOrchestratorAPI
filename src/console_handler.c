@@ -15,6 +15,8 @@
 static unsigned long reference_time_us = 0;
 static unsigned long reference_end_time_us = 0;
 
+
+// --- Private Helper Functions ---
 /**
  * @brief Logs the given time in milliseconds (ms) relative to the given reference
  * time.
@@ -33,7 +35,7 @@ static void log_time(unsigned long time_us, unsigned long reference_time_us) {
     printf(time_format, milliseconds, microseconds);
 }
 
-void log_simulation_parameters(const simulation_parameters_t* params) {
+static void log_simulation_parameters(const simulation_parameters_t* params) {
     flockfile(stdout);
     printf("================= Simulation parameters =================\n");
     printf("  Number of jobs: %d\n", params->num_jobs);
@@ -47,7 +49,7 @@ void log_simulation_parameters(const simulation_parameters_t* params) {
     funlockfile(stdout);
 }
 
-void log_simulation_start(simulation_statistics_t* stats) {
+static void log_simulation_start(simulation_statistics_t* stats) {
     reference_time_us = get_time_in_us();
     stats->simulation_start_time_us = reference_time_us;
     flockfile(stdout);
@@ -56,7 +58,7 @@ void log_simulation_start(simulation_statistics_t* stats) {
     funlockfile(stdout);
 }
 
-void log_simulation_end(simulation_statistics_t* stats) {
+static void log_simulation_end(simulation_statistics_t* stats) {
     reference_end_time_us = get_time_in_us();
     flockfile(stdout);
     log_time(reference_end_time_us, reference_time_us);
@@ -92,7 +94,7 @@ static void job_arrival_helper(int job_id, int papers_required,
     funlockfile(stdout);
 }
 
-void log_system_arrival(job_t* job, unsigned long previous_job_arrival_time_us,
+static void log_system_arrival(job_t* job, unsigned long previous_job_arrival_time_us,
     simulation_statistics_t* stats) {
     stats->total_jobs_arrived++; // stats: total jobs arrived
     stats->total_inter_arrival_time_us += job->system_arrival_time_us - previous_job_arrival_time_us; // stats: avg job inter-arrival time
@@ -100,14 +102,14 @@ void log_system_arrival(job_t* job, unsigned long previous_job_arrival_time_us,
         previous_job_arrival_time_us, job->system_arrival_time_us, FALSE);
 }
 
-void log_dropped_job(job_t* job, unsigned long previous_job_arrival_time_us,
+static void log_dropped_job(job_t* job, unsigned long previous_job_arrival_time_us,
     simulation_statistics_t* stats) {
     stats->total_jobs_dropped++; // stats: total jobs dropped
     job_arrival_helper(job->id, job->papers_required,
         previous_job_arrival_time_us, job->system_arrival_time_us, TRUE);
 }
 
-void log_removed_job(job_t* job) {
+static void log_removed_job(job_t* job) {
     unsigned long current_time_us = get_time_in_us();
     flockfile(stdout);
     log_time(current_time_us, reference_time_us);
@@ -115,7 +117,7 @@ void log_removed_job(job_t* job) {
     funlockfile(stdout);
 }
 
-void log_queue_arrival(const job_t* job, simulation_statistics_t* stats,
+static void log_queue_arrival(const job_t* job, simulation_statistics_t* stats,
     timed_queue_t* job_queue, unsigned long last_interaction_time_us)
 {
     stats->area_num_in_job_queue_us +=
@@ -131,7 +133,7 @@ void log_queue_arrival(const job_t* job, simulation_statistics_t* stats,
     funlockfile(stdout);
 }
 
-void log_queue_departure(const job_t* job, simulation_statistics_t* stats,
+static void log_queue_departure(const job_t* job, simulation_statistics_t* stats,
     timed_queue_t* job_queue, unsigned long last_interaction_time_us)
 {
     stats->area_num_in_job_queue_us +=
@@ -150,7 +152,7 @@ void log_queue_departure(const job_t* job, simulation_statistics_t* stats,
     funlockfile(stdout);
 }
 
-void log_printer_arrival(const job_t* job, const printer_t* printer) {
+static void log_printer_arrival(const job_t* job, const printer_t* printer) {
     flockfile(stdout);
     log_time(job->service_arrival_time_us, reference_time_us);
     printf("job%d begins service at printer%d, printing %d pages in about %dms\n",
@@ -158,7 +160,7 @@ void log_printer_arrival(const job_t* job, const printer_t* printer) {
     funlockfile(stdout);
 }
 
-void log_system_departure(const job_t* job, const printer_t* printer,
+static void log_system_departure(const job_t* job, const printer_t* printer,
     simulation_statistics_t* stats)
 {
     flockfile(stdout);
@@ -204,14 +206,14 @@ void log_system_departure(const job_t* job, const printer_t* printer,
     funlockfile(stdout);
 }
 
-void log_paper_empty(printer_t* printer, int job_id, unsigned long current_time_us) {
+static void log_paper_empty(printer_t* printer, int job_id, unsigned long current_time_us) {
     flockfile(stdout);
     log_time(current_time_us, reference_time_us);
     printf("printer%d does not have enough paper for job%d and is requesting refill\n", printer->id, job_id);
     funlockfile(stdout);
 }
 
-void log_paper_refill_start(printer_t* printer, int papers_needed, 
+static void log_paper_refill_start(printer_t* printer, int papers_needed, 
     int time_to_refill_us, unsigned long current_time_us)
 {
     flockfile(stdout);
@@ -223,7 +225,7 @@ void log_paper_refill_start(printer_t* printer, int papers_needed,
     funlockfile(stdout);
 }
 
-void log_paper_refill_end(printer_t* printer, int refill_duration_us,
+static void log_paper_refill_end(printer_t* printer, int refill_duration_us,
     unsigned long current_time_us)
 {
     flockfile(stdout);
@@ -235,7 +237,7 @@ void log_paper_refill_end(printer_t* printer, int refill_duration_us,
     funlockfile(stdout);
 }
 
-void log_ctrl_c_pressed(simulation_statistics_t* stats) {
+static void log_ctrl_c_pressed(simulation_statistics_t* stats) {
     reference_end_time_us = get_time_in_us();
     flockfile(stdout);
     log_time(reference_end_time_us, reference_time_us);
@@ -245,20 +247,22 @@ void log_ctrl_c_pressed(simulation_statistics_t* stats) {
     funlockfile(stdout);
 }
 
-void log_scale_up(int new_printer_count, int queue_length, unsigned long current_time_us) {
+static void log_scale_up(int new_printer_count, int queue_length, unsigned long current_time_us) {
     flockfile(stdout);
     log_time(current_time_us, reference_time_us);
     printf("Autoscaling: Scaled UP to %d printers (queue length: %d)\n", new_printer_count, queue_length);
     funlockfile(stdout);
 }
 
-void log_scale_down(int new_printer_count, int queue_length, unsigned long current_time_us) {
+static void log_scale_down(int new_printer_count, int queue_length, unsigned long current_time_us) {
     flockfile(stdout);
     log_time(current_time_us, reference_time_us);
     printf("Autoscaling: Scaled DOWN to %d printers (queue length: %d)\n", new_printer_count, queue_length);
     funlockfile(stdout);
 }
 
+
+// --- Public API Function Implementations ---
 void console_handler_register(void) {
     static const log_ops_t ops = {
         .simulation_parameters = log_simulation_parameters,
@@ -279,6 +283,7 @@ void console_handler_register(void) {
         .scale_down = log_scale_down,
         .printer_idle = NULL, // only relevant for websocket (visualizing on frontend)
         .printer_busy = NULL, // only relevant for websocket (visualizing on frontend)
+        .stats_update = NULL, // not needed for console logging
         .simulation_stopped = log_ctrl_c_pressed,
         .statistics = log_statistics,
     };

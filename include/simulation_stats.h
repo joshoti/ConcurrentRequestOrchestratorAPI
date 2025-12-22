@@ -74,4 +74,28 @@ void log_statistics(simulation_statistics_t* stats);
  */
 void debug_statistics(const simulation_statistics_t* stats);
 
+/**
+ * @brief Calculates the average system time (completion time) in seconds.
+ *
+ * @param stats A simulation statistics struct.
+ * @return Average system time in seconds.
+ */
+double calculate_average_system_time(simulation_statistics_t* stats);
+
+/**
+ * @brief Calculates the total papers used across all printers.
+ *
+ * @param stats A simulation statistics struct.
+ * @return Total papers used.
+ */
+int calculate_total_papers_used(simulation_statistics_t* stats);
+
+/**
+ * @brief Calculates the overall average service time across all printers in seconds.
+ *
+ * @param stats A simulation statistics struct.
+ * @return Average service time in seconds.
+ */
+double calculate_overall_average_service_time(simulation_statistics_t* stats);
+
 #endif // SIMULATION_STATS_H
