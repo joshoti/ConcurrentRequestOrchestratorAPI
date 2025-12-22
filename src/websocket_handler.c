@@ -269,7 +269,7 @@ static void publish_scale_down(int new_printer_count, int queue_length, unsigned
 static void publish_printer_idle(const printer_t* printer) {
     char buf[1024];
     
-    sprintf(buf, "{\"type\":\"consumer_update\", \"data\":{\"id\":%d, \"papersLeft\":%d, \"status\":\"idle\"}}",
+    sprintf(buf, "{\"type\":\"consumer_update\", \"data\":{\"id\":%d, \"papersLeft\":%d, \"status\":\"idle\", \"currentJobId\":null}}",
         printer->id, printer->current_paper_count);
     ws_bridge_send_json_from_any_thread(buf, strlen(buf));
 }
@@ -285,7 +285,7 @@ static void publish_printer_busy(const printer_t* printer, int job_id) {
 static void publish_printer_waiting_refill(const printer_t* printer) {
     char buf[1024];
 
-    sprintf(buf, "{\"type\":\"consumer_update\", \"data\":{\"id\":%d, \"papersLeft\":%d, \"status\":\"waiting_refill\"}}",
+    sprintf(buf, "{\"type\":\"consumer_update\", \"data\":{\"id\":%d, \"papersLeft\":%d, \"status\":\"waiting_refill\", \"currentJobId\":null}}",
         printer->id, printer->current_paper_count);
     ws_bridge_send_json_from_any_thread(buf, strlen(buf));
 }

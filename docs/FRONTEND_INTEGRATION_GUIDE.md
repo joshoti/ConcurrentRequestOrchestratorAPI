@@ -238,9 +238,29 @@ interface FrontendState {
 
 interface Consumer {
   id: number;
-  status: "idle" | "serving";
+  status: "idle" | "serving" | "waiting_refill";
   papersLeft: number;
   currentJobId: number | null;
+}
+
+interface Job {
+  id: number;
+  papersRequired: number;
+}
+
+interface SimulationStats {
+  jobsProcessed: number;
+  jobsReceived: number;
+  queueLength: number;
+  avgCompletionTime: number;
+  papersUsed: number;
+  refillEvents: number;
+  avgServiceTime: number;
+}
+
+interface LogEntry {
+  timestamp: number;
+  message: string;
 }
 ```
 
@@ -304,59 +324,6 @@ function parseJobArrival(message: string): JobInfo | null {
 
 ---
 
-## Known Limitations
-
-### Current Implementation
-
-1. **No `consumers_update` message**: Backend doesn't send initial pool state. Frontend should track consumers as they appear via `consumer_update` messages.
-
-2. **No `jobs_update` message**: Backend doesn't send queue state changes. Frontend must reconstruct queue from log messages:
-   - "enters queue" → add to queue
-   - "leaves queue" → remove from queue
-   - "dropped" → don't add to queue
-
-3. **No `stats_update` message**: Backend only sends final statistics via `simulation_complete`. Real-time stats must be calculated from logs.
-
-4. **`currentJobId` always null**: Printer structure doesn't track current job. Enhancement needed in [printer.h](include/printer.h) to add `current_job_id` field.
-
-### Future Enhancements
-
-**Priority 1: Job Tracking in Printers**
-```c
-// In include/printer.h
-typedef struct {
-    int id;
-    int current_paper_count;
-    int current_job_id;  // ADD THIS
-    pthread_mutex_t printer_mutex;
-    pthread_cond_t refill_cv;
-    int termination_flag;
-} printer_t;
-```
-
-**Priority 2: Queue State Messages**
-
-Add to log_ops_t:
-```c
-void (*jobs_update)(job_t** queue_array, int queue_length);
-```
-
-Emit when:
-- Job enters queue
-- Job leaves queue
-- Job dropped
-
-**Priority 3: Real-time Statistics**
-
-Add to log_ops_t:
-```c
-void (*stats_update)(simulation_statistics_t* stats);
-```
-
-Emit after each job completes.
-
----
-
 ## Testing
 
 ### Manual Test with websocat
@@ -372,7 +339,7 @@ brew install websocat
 websocat ws://localhost:8000/websocket
 
 # Send start command
-{"command":"start","params":{"num_jobs":10,"job_arrival_time":100}}
+{"command":"start"}
 ```
 
 ### Expected Output
@@ -387,100 +354,3 @@ websocat ws://localhost:8000/websocket
 ...
 {"type":"simulation_complete","data":{"duration":1234.567}}
 ```
-
----
-
-## Frontend Component Structure
-
-Recommended React component hierarchy:
-
-```
-<SimulationDashboard>
-  <ControlPanel>
-    <ConnectionStatus />
-    <SimulationControls />
-    <ConfigDisplay params={params} />
-  </ControlPanel>
-  
-  <VisualizationArea>
-    <JobQueueViz queue={jobQueue} />
-    <ConsumerPoolViz consumers={consumers} />
-    <StatisticsPanel stats={stats} />
-  </VisualizationArea>
-  
-  <LogPanel logs={logs} />
-</SimulationDashboard>
-```
-
----
-
-## Error Handling
-
-### Connection Errors
-
-```typescript
-ws.onerror = (error) => {
-  console.error("WebSocket error:", error);
-  showErrorBanner("Connection to server lost");
-};
-
-ws.onclose = () => {
-  showReconnectButton();
-};
-```
-
-### Malformed Messages
-
-```typescript
-try {
-  const message = JSON.parse(event.data);
-  handleMessage(message);
-} catch (error) {
-  console.error("Failed to parse message:", event.data, error);
-  // Log but don't crash
-}
-```
-
----
-
-## Performance Considerations
-
-### Message Rate
-
-- High job arrival rates (10-50ms) generate ~20-100 messages/second
-- Autoscaling adds ~2 messages per scale event
-- Consider throttling log panel updates to 60fps
-
-### Memory Management
-
-- Limit log history to last 1000 entries
-- Clean up completed jobs from tracking maps
-- Use virtual scrolling for large log lists
-
----
-
-## Support
-
-For questions or issues:
-1. Check [websockets.json](websockets.json) for expected format examples
-2. Check [events-server.json](events-server.json) for actual backend output
-3. Review source: [src/websocket_handler.c](src/websocket_handler.c)
-4. Open GitHub issue with message trace
-
----
-
-## Change Log
-
-### Version 2.0 (Current)
-- ✅ All messages wrapped in `{"type": "...", "data": {...}}` format
-- ✅ Changed `printer_status` → `consumer_update`
-- ✅ Changed `autoscale` → `log` messages
-- ✅ Added `simulation_started` message
-- ✅ Added `simulation_complete` message  
-- ✅ All timestamps in floating-point milliseconds
-- ✅ `consumer_update` includes papersLeft and status
-
-### Version 1.0 (Deprecated)
-- ❌ Mixed message formats (some with direct properties)
-- ❌ Time strings like "00000123.456ms: "
-- ❌ Integer milliseconds + microseconds
