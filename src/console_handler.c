@@ -185,17 +185,7 @@ static void log_system_departure(const job_t* job, const printer_t* printer,
             stats->max_printers_used = printer->id;
         }
     }
-    
-    // Keep backwards compatibility for printer 1 and 2
-    if (printer->id == 1) {
-        stats->total_service_time_p1_us += service_duration; // stats: avg job service time
-        stats->jobs_served_by_printer1 += 1; // stats: total jobs served by printer 1
-        stats->printer1_paper_used += job->papers_required; // stats: total paper used by printer 1
-    } else if (printer->id == 2) {
-        stats->total_service_time_p2_us += service_duration; // stats: avg job service time
-        stats->jobs_served_by_printer2 += 1; // stats: total jobs served by printer 2
-        stats->printer2_paper_used += job->papers_required; // stats: total paper used by printer 2
-    }
+
     stats->total_queue_wait_time_us +=
         (job->queue_departure_time_us - job->queue_arrival_time_us); // stats: avg job queue wait time
 
@@ -283,6 +273,7 @@ void console_handler_register(void) {
         .scale_down = log_scale_down,
         .printer_idle = NULL, // only relevant for websocket (visualizing on frontend)
         .printer_busy = NULL, // only relevant for websocket (visualizing on frontend)
+        .printer_waiting_refill = NULL, // only relevant for websocket (visualizing on frontend)
         .stats_update = NULL, // not needed for console logging
         .simulation_stopped = log_ctrl_c_pressed,
         .statistics = log_statistics,
