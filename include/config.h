@@ -19,7 +19,7 @@
 // Printer configuration
 #define CONFIG_DEFAULT_PRINT_RATE           5.0     // pages/second
 #define CONFIG_DEFAULT_CONSUMER_COUNT       2       // number of printers
-#define CONFIG_DEFAULT_AUTO_SCALING         0       // false (0) or true (1)
+#define CONFIG_DEFAULT_AUTO_SCALING         1       // false (0) or true (1)
 #define CONFIG_DEFAULT_REFILL_RATE          25.0    // papers/second
 #define CONFIG_DEFAULT_PAPER_CAPACITY       150     // maximum papers per printer
 
