@@ -26,7 +26,7 @@
 
 // Default listen address and websocket paths
 static const char *s_listen_on = "http://127.0.0.1:8000";
-static const char *s_ws_path_primary = "/websocket";
+static const char *s_ws_path_primary = "/ws/simulation";
 static const char *s_web_root = "./tests";
 
 // Mongoose manager and active websocket tracking
@@ -281,6 +281,16 @@ static int ws_msg_equals(struct mg_str s, const char *lit) {
 static void fn(struct mg_connection *c, int ev, void *ev_data) {
 	if (ev == MG_EV_HTTP_MSG) {
 		struct mg_http_message *hm = (struct mg_http_message *) ev_data;
+		
+		// Handle CORS preflight requests
+		if (mg_strcmp(hm->method, mg_str("OPTIONS")) == 0) {
+			mg_http_reply(c, 204, 
+				"Access-Control-Allow-Origin: *\r\n"
+				"Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+				"Access-Control-Allow-Headers: Content-Type\r\n", "");
+			return;
+		}
+		
 		if (mg_match(hm->uri, mg_str(s_ws_path_primary), NULL)) {
 			mg_ws_upgrade(c, hm, NULL);
 		} else if (mg_match(hm->uri, mg_str("/api/config"), NULL)) {
@@ -350,9 +360,13 @@ static void fn(struct mg_connection *c, int ev, void *ev_data) {
 			);
 			
 			if (len > 0 && len < (int)sizeof(json_buffer)) {
-				mg_http_reply(c, 200, "Content-Type: application/json\r\n", "%s", json_buffer);
+				mg_http_reply(c, 200, 
+					"Content-Type: application/json\r\n"
+					"Access-Control-Allow-Origin: *\r\n", "%s", json_buffer);
 			} else {
-				mg_http_reply(c, 500, "Content-Type: text/plain\r\n", "Config buffer overflow");
+				mg_http_reply(c, 500, 
+					"Content-Type: text/plain\r\n"
+					"Access-Control-Allow-Origin: *\r\n", "Config buffer overflow");
 			}
 		} else {
 			// mg_http_reply(c, 200, "Content-Type: text/plain\r\n", "ConcurrentPrintService API\n");
@@ -366,15 +380,97 @@ static void fn(struct mg_connection *c, int ev, void *ev_data) {
 		pthread_mutex_unlock(&g_ws_mutex);
 	} else if (ev == MG_EV_WS_MSG) {
 		struct mg_ws_message *wm = (struct mg_ws_message *) ev_data;
-		if (ws_msg_equals(wm->data, "start")) {
+		printf("DBG ws_message %.*s\n", (int)wm->data.len, wm->data.buf);
+		
+		// Parse JSON command
+		char* command = mg_json_get_str(wm->data, "$.command");
+		printf("DBG command %s\n", command ? command : "null");
+		int cmd_len = command ? strlen(command) : -1;
+		// int cmd_len = mg_json_get_str(wm->data, "$.command", command, sizeof(command));
+		
+		if (cmd_len < 0) {
+			// Not JSON format, try legacy string commands for backward compatibility
+			if (ws_msg_equals(wm->data, "start")) {
+				start_simulation_async(&g_ctx);
+				const char *resp = "{\"status\":\"starting\"}";
+				mg_ws_send(c, resp, strlen(resp), WEBSOCKET_OP_TEXT);
+				return;
+			} else if (ws_msg_equals(wm->data, "stop")) {
+				request_stop_simulation(&g_ctx);
+				const char *resp = "{\"status\":\"stopping\"}";
+				mg_ws_send(c, resp, strlen(resp), WEBSOCKET_OP_TEXT);
+				return;
+			} else if (ws_msg_equals(wm->data, "status")) {
+				pthread_mutex_lock(&g_server_state_mutex);
+				int running = g_ctx.is_running;
+				pthread_mutex_unlock(&g_server_state_mutex);
+				const char *resp = running ? "{\"status\":\"running\"}" : "{\"status\":\"idle\"}";
+				mg_ws_send(c, resp, strlen(resp), WEBSOCKET_OP_TEXT);
+				return;
+			}
+			const char *resp = "{\"error\":\"invalid message format\"}";
+			mg_ws_send(c, resp, strlen(resp), WEBSOCKET_OP_TEXT);
+			return;
+		}
+
+		// Handle JSON commands
+		if (strcmp(command, "start") == 0) {
+			// Check if config is provided
+			double num_jobs = 0;
+			mg_json_get_num(wm->data, "$.config.jobCount", &num_jobs);
+
+			if (num_jobs > 0) {
+				// Apply config overrides
+				pthread_mutex_lock(&g_server_state_mutex);
+				g_ctx.params.num_jobs = (int)num_jobs;
+
+				double print_rate;
+				if (1 == mg_json_get_num(wm->data, "$.config.printRate", &print_rate))
+					g_ctx.params.printing_rate = print_rate;
+
+				double consumer_count;
+				if (1 == mg_json_get_num(wm->data, "$.config.consumerCount", &consumer_count))
+					g_ctx.params.consumer_count = (int)consumer_count;
+
+				double refill_rate;
+				if (1 == mg_json_get_num(wm->data, "$.config.refillRate", &refill_rate))
+					g_ctx.params.refill_rate = refill_rate;
+
+				double paper_capacity;
+				if (1 == mg_json_get_num(wm->data, "$.config.paperCapacity", &paper_capacity))
+					g_ctx.params.printer_paper_capacity = (int)paper_capacity;
+
+				double job_arrival;
+				if (1 == mg_json_get_num(wm->data, "$.config.jobArrivalTime", &job_arrival))
+					g_ctx.params.job_arrival_time_us = (int)job_arrival;
+
+				double max_queue;
+				if (1 == mg_json_get_num(wm->data, "$.config.maxQueue", &max_queue))
+					g_ctx.params.queue_capacity = (int)max_queue;
+
+				double min_papers;
+				if (1 == mg_json_get_num(wm->data, "$.config.minPapers", &min_papers))
+					g_ctx.params.papers_required_lower_bound = (int)min_papers;
+
+				double max_papers;
+				if (1 == mg_json_get_num(wm->data, "$.config.maxPapers", &max_papers))
+					g_ctx.params.papers_required_upper_bound = (int)max_papers;
+
+				bool auto_scaling;
+				if (1 == mg_json_get_bool(wm->data, "$.config.autoScaling", &auto_scaling))
+					g_ctx.params.auto_scaling = (int)auto_scaling;
+				
+				pthread_mutex_unlock(&g_server_state_mutex);
+			}
+			
 			start_simulation_async(&g_ctx);
 			const char *resp = "{\"status\":\"starting\"}";
 			mg_ws_send(c, resp, strlen(resp), WEBSOCKET_OP_TEXT);
-		} else if (ws_msg_equals(wm->data, "stop")) {
+		} else if (strcmp(command, "stop") == 0) {
 			request_stop_simulation(&g_ctx);
 			const char *resp = "{\"status\":\"stopping\"}";
 			mg_ws_send(c, resp, strlen(resp), WEBSOCKET_OP_TEXT);
-		} else if (ws_msg_equals(wm->data, "status")) {
+		} else if (strcmp(command, "status") == 0) {
 			pthread_mutex_lock(&g_server_state_mutex);
 			int running = g_ctx.is_running;
 			pthread_mutex_unlock(&g_server_state_mutex);
