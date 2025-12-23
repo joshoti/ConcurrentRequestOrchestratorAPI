@@ -27,12 +27,16 @@ This directory contains unit tests and integration tests for the ConcurrentPrint
 ### C Unit Tests
 
 ```bash
-# Run all C unit tests
+# Run all C unit tests with colorized summary
 bash run_unit_tests.sh
+```
 
-# Or run individual test executables (if available)
-./bin/test_linked_list
-./bin/test_timed_queue
+This script will:
+- Build all tests using `MakefileTest.mk`
+- Run each test suite (linked_list, preprocessing, job_receiver, simulation_stats, timed_queue)
+- Display a summary: "X passed, Y failed"
+- Clean up test binaries automatically
+- Exit with code 1 if any tests fail (CI-friendly)
 ```
 
 ### Python Integration Tests
@@ -124,8 +128,46 @@ def test_start_command_with_config(self):
 
 1. Create `test_<module>.c` in `tests/`
 2. Include `test_utils.h` for helper functions
-3. Add test to Makefile test target
-4. Follow existing test patterns
+3. Use the `RUN_TEST` macro for automatic test counting:
+
+```c
+#include "test_utils.h"
+
+int test_my_function() {
+    // Test logic here
+    if (condition_passes) {
+        printf("Test passed\n");
+        return 0;  // Pass
+    } else {
+        printf("Test failed\n");
+        return 1;  // Fail
+    }
+}
+
+int main() {
+    char test_name[] = "MY_MODULE";
+    print_test_start(test_name);
+    
+    int total_tests = 0;      // Automatically incremented by RUN_TEST
+    int failed_tests = 0;     // Automatically incremented by RUN_TEST
+    
+    RUN_TEST(test_my_function());    // Counts as 1 test
+    RUN_TEST(test_another_function()); // Counts as 1 test
+    
+    int passed_tests = total_tests - failed_tests;
+    print_test_end(test_name, passed_tests, failed_tests);
+    return failed_tests > 0 ? 1 : 0;
+}
+```
+
+4. Add test to `MakefileTest.mk`
+5. Add test binary to `run_unit_tests.sh` TESTS array
+
+**Key Points:**
+- Test functions return 0 for pass, non-zero for fail
+- Use `RUN_TEST(func())` macro instead of `failed_tests += func()`
+- No need to manually track `total_tests` count
+- The macro automatically increments both counters
 
 ### Python Integration Tests
 

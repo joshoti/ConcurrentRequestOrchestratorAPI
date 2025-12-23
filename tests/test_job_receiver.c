@@ -29,13 +29,16 @@ int test_debug_job(job_t* job) {
 int main() {
     char test_name[] = "JOB";
     print_test_start(test_name);
+    
+    int total_tests = 0;
     int failed_tests = 0;
 
     job_t job;
-    failed_tests += test_job_init(&job);
-    failed_tests += test_debug_job(&job);
+    RUN_TEST(test_job_init(&job));
+    RUN_TEST(test_debug_job(&job));
 
-    print_test_end(test_name, failed_tests);
-    return 0;
+    int passed_tests = total_tests - failed_tests;
+    print_test_end(test_name, passed_tests, failed_tests);
+    return failed_tests > 0 ? 1 : 0;
 }
 

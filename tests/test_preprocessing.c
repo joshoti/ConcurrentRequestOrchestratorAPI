@@ -12,11 +12,11 @@ int test_process_args() {
         "-num", "5",
         "-q", "10",
         "-p_cap", "100",
-        "-arr", "0.1",
-        "-s", "0.2",
-        "-ref", "10",
-        "-papers_lower", "50",
-        "-papers_upper", "10"
+        "-job_arr_time", "200",
+        "-s", "5",
+        "-ref", "15",
+        "-papers_lower", "10",
+        "-papers_upper", "30"
     };
     int argc = sizeof(argv) / sizeof(argv[0]);
     simulation_parameters_t params;
@@ -48,9 +48,9 @@ int test_bad_args() {
         "-num", "-5",  // Invalid negative number
         "-q", "10",
         "-p_cap", "100",
-        "-arr", "0.1",
-        "-s", "0.2",
-        "-ref", "0.3"
+        "-job_arr_time", "200",
+        "-s", "5",
+        "-ref", "30"
     };
     int argc = sizeof(argv) / sizeof(argv[0]);
     simulation_parameters_t params;
@@ -113,12 +113,17 @@ int test_swap_bounds_with_correct_values() {
 int main() {
     char test_name[] = "PREPROCESSING";
     print_test_start(test_name);
+    
+    int total_tests = 0;
     int failed_tests = 0;
-    failed_tests += test_process_args();
-    failed_tests += test_bad_args();
-    failed_tests += test_random_between();
-    failed_tests += test_swap_bounds();
-    failed_tests += test_swap_bounds_with_correct_values();
-    print_test_end(test_name, failed_tests);
-    return 0;
+    
+    RUN_TEST(test_process_args());
+    RUN_TEST(test_bad_args());
+    RUN_TEST(test_random_between());
+    RUN_TEST(test_swap_bounds());
+    RUN_TEST(test_swap_bounds_with_correct_values());
+    
+    int passed_tests = total_tests - failed_tests;
+    print_test_end(test_name, passed_tests, failed_tests);
+    return failed_tests > 0 ? 1 : 0;
 }

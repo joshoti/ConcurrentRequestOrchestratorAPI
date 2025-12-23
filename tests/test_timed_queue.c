@@ -174,71 +174,73 @@ void print_all_queue_elements(timed_queue_t* tq) {
     printf("Total elements: %d\n", position);
 }
 
+int test_clear_timestamp(timed_queue_t* tq) {
+    unsigned long time_before_clear = tq->last_interaction_time_us;
+    print_timestamp("Timestamp before clear", time_before_clear);
+    
+    usleep(1000);
+    timed_queue_clear(tq);
+    
+    unsigned long time_after_clear = tq->last_interaction_time_us;
+    print_timestamp("Timestamp after clear", time_after_clear);
+    
+    printf("Queue is empty after clear: %d\n", timed_queue_is_empty(tq));
+    
+    if (time_after_clear > time_before_clear) {
+        printf("Passed clear timestamp update test.\n");
+        return 0;
+    } else {
+        printf("Failed clear timestamp update test.\n");
+        return 1;
+    }
+}
+
 int main() {
     char test_name[] = "TIMED QUEUE";
     print_test_start(test_name);
 
-    int failed_test_count = 0;
+    int total_tests = 0;
+    int failed_tests = 0;
     
     // Initialize timed queue
     timed_queue_t tq;
-    test_timed_queue_init(&tq);
-    
-    printf("\n=================================================\n");
+    RUN_TEST(test_timed_queue_init(&tq));
+
     
     // Create test data
     int a = 10, b = 20, c = 30, d = 40;
     
     // Test enqueuing 4 items
-    test_timed_queue_enqueue(&tq, &a, &b, &c, &d);
+    RUN_TEST(test_timed_queue_enqueue(&tq, &a, &b, &c, &d));
     
     // Print all elements
     print_all_queue_elements(&tq);
-    
-    printf("\n=================================================\n");
+
     
     // Test read-only operations (should not change timestamp)
-    test_read_only_operations(&tq);
-    
-    printf("\n=================================================\n");
+    RUN_TEST(test_read_only_operations(&tq));
+
     
     // Test dequeue (should remove first item - value 10)
-    test_timed_queue_dequeue(&tq, 10);
+    RUN_TEST(test_timed_queue_dequeue(&tq, 10));
     
     // Print remaining elements
     print_all_queue_elements(&tq);
-    
-    printf("\n=================================================\n");
+
     
     // Test another dequeue
-    printf("\nDequeuing second element...\n");
-    test_timed_queue_dequeue(&tq, 20);
+    printf("\n--- Dequeuing second element ---\n");
+    RUN_TEST(test_timed_queue_dequeue(&tq, 20));
     
     // Print remaining elements
     print_all_queue_elements(&tq);
-    
-    printf("\n=================================================\n");
+
     
     // Test clear operation
     printf("\n--- Testing Clear Operation ---\n");
-    unsigned long time_before_clear = tq.last_interaction_time_us;
-    print_timestamp("Timestamp before clear", time_before_clear);
+    RUN_TEST(test_clear_timestamp(&tq));
     
-    usleep(1000);
-    timed_queue_clear(&tq);
-    
-    unsigned long time_after_clear = tq.last_interaction_time_us;
-    print_timestamp("Timestamp after clear", time_after_clear);
-    
-    printf("Queue is empty after clear: %d\n", timed_queue_is_empty(&tq));
-    
-    if (time_after_clear > time_before_clear) {
-        printf("Passed clear timestamp update test.\n");
-    } else {
-        printf("Failed clear timestamp update test.\n");
-        failed_test_count++;
-    }
-    
-    print_test_end(test_name, failed_test_count);
-    return 0;
+    int passed_tests = total_tests - failed_tests;
+    print_test_end(test_name, passed_tests, failed_tests);
+    return failed_tests > 0 ? 1 : 0;
 }

@@ -111,11 +111,45 @@ int print_all_elements_and_compare(linked_list_t* list, char* expected) {
     return failed;
 }
 
+int test_list_length_check(linked_list_t* list) {
+    if (test_list_length(list) == 3) {
+        printf("Passed list append and length test.\n");
+        return 0;
+    } else {
+        printf("Failed list append and length test.\n");
+        return 1;
+    }
+}
+
+int test_first_and_last(linked_list_t* list) {
+    list_node_t* first = test_list_first(list);
+    list_node_t* last = test_list_last(list);
+    if (first && last && *(int*)first->data == 1 && *(int*)last->data == 3) {
+        printf("Passed first and last element test.\n");
+        return 0;
+    } else {
+        printf("Failed first and last element test.\n");
+        return 1;
+    }
+}
+
+int test_append_left_check(linked_list_t* list, int* d) {
+    if (test_list_append_left(list, d) == TRUE) {
+        printf("Passed append left test.\n");
+        return 0;
+    } else {
+        printf("Failed append left test.\n");
+        return 1;
+    }
+}
+
 int main() {
     char test_name[] = "LINKED LIST";
     print_test_start(test_name);
 
-    int failed_test_count = 0;
+    int total_tests = 0;
+    int failed_tests = 0;
+    
     test_bad_list_init(NULL);
     
     linked_list_t list;
@@ -125,25 +159,9 @@ int main() {
     int a = 1, b = 2, c = 3;
     test_list_append(&list, &a, &b, &c);
 
-    failed_test_count += print_all_elements_and_compare(&list, "1 2 3");
-    
-    // Test list length
-    if (test_list_length(&list) == 3) {
-        printf("Passed list append and length test.\n");
-    } else {
-        printf("Failed list append and length test.\n");
-        failed_test_count++;
-    }
-    
-    // Test first and last elements
-    list_node_t* first = test_list_first(&list);
-    list_node_t* last = test_list_last(&list);
-    if (first && last && *(int*)first->data == 1 && *(int*)last->data == 3) {
-        printf("Passed first and last element test.\n");
-    } else {
-        printf("Failed first and last element test.\n");
-        failed_test_count++;
-    }
+    RUN_TEST(print_all_elements_and_compare(&list, "1 2 3"));
+    RUN_TEST(test_list_length_check(&list));
+    RUN_TEST(test_first_and_last(&list));
     
     // Test if list is empty
     printf("List is empty, should be 0: %d\n", test_list_is_empty(&list));
@@ -156,18 +174,12 @@ int main() {
     // Test if list is empty
     printf("List is empty, should be 0: %d\n", test_list_is_empty(&list));
 
-    failed_test_count += print_all_elements_and_compare(&list, "1 2");
+    RUN_TEST(print_all_elements_and_compare(&list, "1 2"));
 
     // Test append left
     int d = 4;
-    if (test_list_append_left(&list, &d) == TRUE) {
-        printf("Passed append left test.\n");
-    } else {
-        printf("Failed append left test.\n");
-        failed_test_count++;
-    }
-
-    failed_test_count += print_all_elements_and_compare(&list, "4 1 2");
+    RUN_TEST(test_append_left_check(&list, &d));
+    RUN_TEST(print_all_elements_and_compare(&list, "4 1 2"));
 
     // Clear the list
     test_list_clear(&list);
@@ -175,6 +187,7 @@ int main() {
     // Test if list is empty
     printf("List is empty, should be 1: %d\n", test_list_is_empty(&list));
 
-    print_test_end(test_name, failed_test_count);
-    return 0;
+    int passed_tests = total_tests - failed_tests;
+    print_test_end(test_name, passed_tests, failed_tests);
+    return failed_tests > 0 ? 1 : 0;
 }

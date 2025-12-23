@@ -62,13 +62,16 @@ int test_log_statistics(simulation_statistics_t* stats) {
 int main() {
     char test_name[] = "SIMULATION STATS";
     print_test_start(test_name);
+    
+    int total_tests = 0;
     int failed_tests = 0;
     
     simulation_statistics_t stats;
-    failed_tests += test_create_simulation_stats(&stats);
-    failed_tests += test_write_statistics_to_buffer(&stats);
-    failed_tests += test_log_statistics(&stats);
+    RUN_TEST(test_create_simulation_stats(&stats));
+    RUN_TEST(test_write_statistics_to_buffer(&stats));
+    RUN_TEST(test_log_statistics(&stats));
 
-    print_test_end(test_name, failed_tests);
-    return 0;
+    int passed_tests = total_tests - failed_tests;
+    print_test_end(test_name, passed_tests, failed_tests);
+    return failed_tests > 0 ? 1 : 0;
 }
