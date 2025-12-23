@@ -94,6 +94,28 @@ list_node_t* list_last(linked_list_t* list) {
     return list->tail.prev;
 }
 
+list_node_t* list_next(linked_list_t* list, list_node_t* node) {
+    if (list == NULL || node == NULL || node->next == NULL) {
+        return NULL;
+    }
+    // Check if next is the tail sentinel
+    if (node->next == &list->tail) {
+        return NULL;
+    }
+    return node->next;
+}
+
+list_node_t* list_prev(linked_list_t* list, list_node_t* node) {
+    if (list == NULL || node == NULL || node->prev == NULL) {
+        return NULL;
+    }
+    // Check if prev is the head sentinel
+    if (node->prev == &list->head) {
+        return NULL;
+    }
+    return node->prev;
+}
+
 list_node_t* list_find(linked_list_t* list, void* data) {
     list_node_t* curr = NULL;
     for (curr = list_first(list); curr != NULL; curr = curr->next) {

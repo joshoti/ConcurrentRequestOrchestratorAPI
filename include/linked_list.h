@@ -98,7 +98,22 @@ list_node_t* list_first(linked_list_t* list);
 list_node_t* list_last(linked_list_t* list);
 
 /**
- * @brief Find a node in the list containing the specified data.
+ * @brief Get the next node in the list.
+ * @param list Pointer to the LinkedList.
+ * @param node Pointer to the current ListNode.
+ * @return Pointer to the next ListNode, or NULL if at the end of the list.
+ */
+list_node_t* list_next(linked_list_t* list, list_node_t* node);
+
+/**
+ * @brief Get the previous node in the list.
+ * @param list Pointer to the LinkedList.
+ * @param node Pointer to the current ListNode.
+ * @return Pointer to the previous ListNode, or NULL if at the beginning of the list.
+ */
+list_node_t* list_prev(linked_list_t* list, list_node_t* node);
+
+/** * @brief Find a node in the list containing the specified data.
  * @param list Pointer to the LinkedList.
  * @param data Pointer to the data to search for.
  * @return Pointer to the found ListNode, or NULL if not found.

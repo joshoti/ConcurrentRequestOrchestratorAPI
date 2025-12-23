@@ -113,4 +113,22 @@ list_node_t* timed_queue_last(timed_queue_t* tq);
  */
 list_node_t* timed_queue_find(timed_queue_t* tq, void* data);
 
+/**
+ * @brief Get the next node in the queue.
+ * Does NOT update the timestamp (read-only operation).
+ * @param tq Pointer to the TimedQueue.
+ * @param node Pointer to the current ListNode.
+ * @return Pointer to the next ListNode, or NULL if at the end of the queue.
+ */
+list_node_t* timed_queue_next(timed_queue_t* tq, list_node_t* node);
+
+/**
+ * @brief Get the previous node in the queue.
+ * Does NOT update the timestamp (read-only operation).
+ * @param tq Pointer to the TimedQueue.
+ * @param node Pointer to the current ListNode.
+ * @return Pointer to the previous ListNode, or NULL if at the beginning of the queue.
+ */
+list_node_t* timed_queue_prev(timed_queue_t* tq, list_node_t* node);
+
 #endif // TIMED_QUEUE_H

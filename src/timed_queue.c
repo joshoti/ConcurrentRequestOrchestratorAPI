@@ -119,3 +119,19 @@ list_node_t* timed_queue_find(timed_queue_t* tq, void* data) {
     // Read-only operation - does NOT update timestamp
     return list_find(&tq->list, data);
 }
+
+list_node_t* timed_queue_next(timed_queue_t* tq, list_node_t* node) {
+    if (tq == NULL) {
+        return NULL;
+    }
+    // Read-only operation - does NOT update timestamp
+    return list_next(&tq->list, node);
+}
+
+list_node_t* timed_queue_prev(timed_queue_t* tq, list_node_t* node) {
+    if (tq == NULL) {
+        return NULL;
+    }
+    // Read-only operation - does NOT update timestamp
+    return list_prev(&tq->list, node);
+}
