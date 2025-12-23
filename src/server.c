@@ -74,6 +74,11 @@ typedef struct simulation_context {
 static simulation_context_t g_ctx; // single simulation instance
 static pthread_mutex_t g_server_state_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+/**
+ * @brief Initialize the simulation context with default values and synchronization primitives
+ * 
+ * @param ctx Pointer to the simulation context to initialize
+ */
 static void init_context(simulation_context_t* ctx) {
 	memset(ctx, 0, sizeof(*ctx));
 	ctx->params = (simulation_parameters_t)SIMULATION_DEFAULT_PARAMS_HIGH_LOAD;
@@ -94,6 +99,11 @@ static void init_context(simulation_context_t* ctx) {
 	list_init(&ctx->paper_refill_queue);
 }
 
+/**
+ * @brief Clean up and destroy all synchronization primitives in the simulation context
+ * 
+ * @param ctx Pointer to the simulation context to destroy
+ */
 static void destroy_context(simulation_context_t* ctx) {
 	pthread_mutex_destroy(&ctx->job_queue_mutex);
 	pthread_mutex_destroy(&ctx->paper_refill_queue_mutex);
@@ -104,6 +114,15 @@ static void destroy_context(simulation_context_t* ctx) {
 	pthread_cond_destroy(&ctx->refill_supplier_cv);
 }
 
+/**
+ * @brief Main simulation orchestration thread that sets up and manages all simulation threads
+ * 
+ * Initializes thread arguments, starts printer pool, job receiver, paper refiller, and autoscaling
+ * threads, then waits for completion and performs cleanup.
+ * 
+ * @param arg Pointer to simulation_context_t
+ * @return NULL
+ */
 static void* simulation_runner(void* arg) {
     if (g_debug) printf("Simulation runner thread started\n");
 	simulation_context_t* ctx = (simulation_context_t*)arg;
@@ -143,7 +162,7 @@ static void* simulation_runner(void* arg) {
 		.printer = NULL // Will be set by printer_pool_start_printer
 	};
 
-	// Autoscaling args
+	// Autoscaling thread args
 	autoscaling_thread_args_t autoscaling_args = {
 		.pool = &ctx->printer_pool,
 		.job_queue_mutex = &ctx->job_queue_mutex,
@@ -162,6 +181,7 @@ static void* simulation_runner(void* arg) {
 	};
 	ctx->autoscaling_args = autoscaling_args;
 
+	// Paper refiller thread args
 	paper_refill_thread_args_t paper_refill_args = {
 		.paper_refill_queue_mutex = &ctx->paper_refill_queue_mutex,
 		.stats_mutex = &ctx->stats_mutex,
@@ -214,7 +234,7 @@ static void* simulation_runner(void* arg) {
 	emit_simulation_end(&ctx->stats);
 	emit_statistics(&ctx->stats);
 
-	// Clear stats
+	// Clear stats for next run
 	ctx->stats = (simulation_statistics_t){0};
 
 	pthread_mutex_lock(&g_server_state_mutex);
@@ -224,6 +244,13 @@ static void* simulation_runner(void* arg) {
 	return NULL;
 }
 
+/**
+ * @brief Start the simulation asynchronously in a background thread
+ * 
+ * Checks if simulation is already running and creates a new simulation_runner thread if not.
+ * 
+ * @param ctx Pointer to the simulation context
+ */
 static void start_simulation_async(simulation_context_t* ctx) {
 	pthread_mutex_lock(&g_server_state_mutex);
 	if (ctx->is_running) {
@@ -235,6 +262,14 @@ static void start_simulation_async(simulation_context_t* ctx) {
 	pthread_create(&ctx->simulation_runner_thread, NULL, simulation_runner, ctx);
 }
 
+/**
+ * @brief Request graceful termination of the running simulation
+ * 
+ * Sets termination flags, cancels threads, empties the job queue, and broadcasts
+ * condition variables to wake up waiting threads.
+ * 
+ * @param ctx Pointer to the simulation context
+ */
 static void request_stop_simulation(simulation_context_t* ctx) {
 	// Emulate signal catcher logic to stop simulation gracefully
 	pthread_mutex_lock(&ctx->simulation_state_mutex);
@@ -471,6 +506,16 @@ void ws_bridge_send_json_from_any_thread(const char *json, size_t len) {
 	}
 }
 
+/**
+ * @brief Server entry point - initializes Mongoose HTTP/WebSocket server and event loop
+ * 
+ * Sets up the simulation context, registers WebSocket handlers, configures CORS,
+ * and starts the HTTP server with WebSocket support on port 8000.
+ * 
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return 0 on success, 1 on failure
+ */
 int main(int argc, char *argv[]) {
 	// Initialize context and process args
 	init_context(&g_ctx);
