@@ -32,7 +32,7 @@ bash run_unit_tests.sh
 ```
 
 This script will:
-- Build all tests using `MakefileTest.mk`
+- Build all tests using `tests/Makefile`
 - Run each test suite (linked_list, preprocessing, job_receiver, simulation_stats, timed_queue)
 - Display a summary: "X passed, Y failed"
 - Clean up test binaries automatically
@@ -160,7 +160,7 @@ int main() {
 }
 ```
 
-4. Add test to `MakefileTest.mk`
+4. Add test to `tests/Makefile`
 5. Add test binary to `run_unit_tests.sh` TESTS array
 
 **Key Points:**

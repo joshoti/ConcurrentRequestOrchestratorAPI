@@ -9,8 +9,12 @@ YELLOW='\033[0;33m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
+# Get the script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 echo -e "${BOLD}${BLUE}Building tests...${NC}"
-make -f MakefileTest.mk
+make
 
 if [ $? -ne 0 ]; then
     echo -e "${RED}Build failed!${NC}"
@@ -87,7 +91,7 @@ echo -e "${BOLD}================================================================
 
 # Cleanup
 echo -e "${BOLD}${BLUE}Cleaning up...${NC}"
-make -f MakefileTest.mk clean
+make clean
 
 # Exit with failure if any tests failed
 if [ $TOTAL_FAILED -gt 0 ]; then
