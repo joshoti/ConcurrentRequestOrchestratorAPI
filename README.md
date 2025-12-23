@@ -49,7 +49,7 @@ make -s bin/server && ./bin/server
 
 2. Connect to `http://localhost:8000/test_websocket.html`
 
-3. Click the ***connect button***, type `start`, and hit the ***send message button***
+3. Click the ***connect button*** and hit the ***start button***
 
 See [FRONTEND_INTEGRATION_GUIDE.md](FRONTEND_INTEGRATION_GUIDE.md) for complete WebSocket protocol documentation.
 
@@ -88,10 +88,11 @@ Key parameters (see `include/config.h`):
 
 ## Testing
 
-Run all tests:
+Run unit tests:
 ```sh
-./run-tests.sh
+bash tests/run_unit_tests.sh
 ```
+See test [docs](/tests/README.md) for more tests
 
 ## Development
 
@@ -103,6 +104,19 @@ make bin/cli      # Build CLI only
 make bin/server   # Build server only
 ```
 
+### Running with Docker
+- *Build and run locally*
+```
+docker build -t request-orchestrator .
+docker run -p 8000:8000 request-orchestrator
+```
+
+- *Or pull from DockerHub*
+```
+docker pull joshoti/request-orchestrator:latest
+docker run -p 8000:8000 joshoti/request-orchestrator:latest
+```
+
 ### Debugging
 ```sh
 # Save logs to file
@@ -111,8 +125,4 @@ make bin/server   # Build server only
 # Filter specific events
 ./bin/cli -num 20 2>&1 | grep "autoscal"
 ./bin/cli -num 20 2>&1 | grep "refill"
-
-# Test with WebSocket client
-brew install websocat
-websocat ws://localhost:8000/websocket
 ```
