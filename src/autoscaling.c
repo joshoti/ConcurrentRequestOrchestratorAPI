@@ -133,16 +133,16 @@ int scale_up(autoscaling_thread_args_t* args) {
         .printer = NULL // Will be set by printer_pool_start_printer
     };
     
+    pthread_mutex_lock(args->job_queue_mutex);
+    int queue_length = timed_queue_length(args->job_queue);
+    pthread_mutex_unlock(args->job_queue_mutex);
+    
+    unsigned long current_time_us = get_time_in_us();
+    emit_scale_up(pool->active_count + 1, queue_length, current_time_us); // +1 because this log prints before actual scaling
     if (printer_pool_start_printer(pool, new_printer_id, &shared_args)) {
-        unsigned long current_time_us = get_time_in_us();
         pool->last_scale_time_us = current_time_us;
         pool->low_queue_start_time_us = 0; // Reset scale-down timer
-        
-        pthread_mutex_lock(args->job_queue_mutex);
-        int queue_length = timed_queue_length(args->job_queue);
-        pthread_mutex_unlock(args->job_queue_mutex);
-        
-        emit_scale_up(pool->active_count, queue_length, current_time_us);
+
         if (g_debug) {
             printf("Printer %d thread started\n", new_printer_id);
         }
