@@ -31,6 +31,7 @@ typedef struct log_ops {
     void (*queue_departure)(const struct job* job, struct simulation_statistics* stats,
                             struct timed_queue* job_queue, unsigned long last_interaction_time_us);
     void (*job_update)(const struct job* job);
+    void (*jobs_update)(struct timed_queue* job_queue);
 
     void (*printer_arrival)(const struct job* job, const struct printer* printer);
     void (*system_departure)(const struct job* job, const struct printer* printer,
@@ -153,6 +154,14 @@ void emit_queue_departure(const struct job* job, struct simulation_statistics* s
  * @param job The job to broadcast (id and papers required).
  */
 void emit_job_update(const struct job* job);
+
+/**
+ * @brief Emits a complete snapshot of all jobs currently in the queue.
+ * Routes to the active logger (console or websocket).
+ * 
+ * @param job_queue The job queue to broadcast (all jobs with id and papers required).
+ */
+void emit_jobs_update(struct timed_queue* job_queue);
 
 /**
  * @brief Emits an event when a job arrives at a printer for processing.

@@ -112,7 +112,7 @@ void* printer_thread_func(void* arg) {
         job_t* job = (job_t*)elem->data;
         job->queue_departure_time_us = get_time_in_us();
         emit_queue_departure(job, args->stats, args->job_queue, queue_last_interaction_time_us);
-        emit_job_update(job);
+        emit_jobs_update(args->job_queue);
         emit_stats_update(args->stats, timed_queue_length(args->job_queue));
 
         pthread_mutex_unlock(args->job_queue_mutex);

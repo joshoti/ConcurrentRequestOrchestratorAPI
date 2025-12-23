@@ -152,6 +152,33 @@ static void publish_job_update(const job_t* job) {
     ws_bridge_send_json_from_any_thread(buf, strlen(buf));
 }
 
+static void publish_jobs_update(timed_queue_t* job_queue) {
+    char buf[8192];
+    int offset = 0;
+    
+    offset += sprintf(buf + offset, "{\"type\":\"jobs_update\", \"data\":[");
+    
+    // Iterate through all jobs in the queue
+    int first = 1;
+    list_node_t* current = timed_queue_first(job_queue);
+    while (current != NULL) {
+        job_t* job = (job_t*)current->data;
+        if (!first) {
+            offset += sprintf(buf + offset, ",");
+        }
+        offset += sprintf(buf + offset, "{\"id\":%d,\"papersRequired\":%d}",
+                         job->id, job->papers_required);
+        first = 0;
+        current = timed_queue_next(job_queue, current);
+        
+        // Safety check to prevent buffer overflow
+        if (offset > 7900) break;
+    }
+    
+    offset += sprintf(buf + offset, "]}");
+    ws_bridge_send_json_from_any_thread(buf, strlen(buf));
+}
+
 static void publish_printer_arrival(const job_t* job, const printer_t* printer)
 {
     char buf[1024];
@@ -325,6 +352,7 @@ void websocket_handler_register(void) {
         .queue_arrival = publish_queue_arrival,
         .queue_departure = publish_queue_departure,
         .job_update = publish_job_update,
+        .jobs_update = publish_jobs_update,
         .printer_arrival = publish_printer_arrival,
         .system_departure = publish_system_departure,
         .paper_empty = publish_paper_empty,

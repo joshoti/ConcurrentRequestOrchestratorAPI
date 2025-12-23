@@ -68,6 +68,10 @@ void emit_job_update(const struct job* job) {
     if (logger && has(logger->job_update)) logger->job_update(job);
 }
 
+void emit_jobs_update(struct timed_queue* job_queue) {
+    if (logger && has(logger->jobs_update)) logger->jobs_update(job_queue);
+}
+
 void emit_printer_arrival(const struct job* job, const struct printer* printer) {
     if (logger && has(logger->printer_arrival)) logger->printer_arrival(job, printer);
 }
