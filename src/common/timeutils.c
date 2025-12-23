@@ -1,5 +1,7 @@
 #include <sys/time.h>
 #include <math.h>
+#include <stddef.h>
+
 #include "timeutils.h"
 
 const char time_format[] = "%08d.%03dms: ";
