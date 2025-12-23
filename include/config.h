@@ -25,7 +25,7 @@
 
 // Job configuration
 #define CONFIG_DEFAULT_JOB_ARRIVAL_TIME     500     // milliseconds between jobs
-#define CONFIG_DEFAULT_JOB_COUNT            10      // number of jobs to process
+#define CONFIG_DEFAULT_JOB_COUNT            20      // number of jobs to process
 #define CONFIG_DEFAULT_FIXED_ARRIVAL        1       // true (1) = fixed, false (0) = random
 #define CONFIG_DEFAULT_MIN_ARRIVAL_TIME     300     // milliseconds (if random)
 #define CONFIG_DEFAULT_MAX_ARRIVAL_TIME     600     // milliseconds (if random)

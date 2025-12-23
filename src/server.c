@@ -264,12 +264,6 @@ static void request_stop_simulation(simulation_context_t* ctx) {
     pthread_mutex_unlock(&ctx->paper_refill_queue_mutex);
 }
 
-// Helper to compare incoming ws message with a C string literal
-static int ws_msg_equals(struct mg_str s, const char *lit) {
-	size_t n = strlen(lit);
-	return s.len == n && memcmp(s.buf, lit, n) == 0;
-}
-
 // Mongoose event handler
 /**
  * @brief Mongoose event handler for HTTP and WebSocket events
@@ -380,38 +374,9 @@ static void fn(struct mg_connection *c, int ev, void *ev_data) {
 		pthread_mutex_unlock(&g_ws_mutex);
 	} else if (ev == MG_EV_WS_MSG) {
 		struct mg_ws_message *wm = (struct mg_ws_message *) ev_data;
-		printf("DBG ws_message %.*s\n", (int)wm->data.len, wm->data.buf);
 		
 		// Parse JSON command
 		char* command = mg_json_get_str(wm->data, "$.command");
-		printf("DBG command %s\n", command ? command : "null");
-		int cmd_len = command ? strlen(command) : -1;
-		// int cmd_len = mg_json_get_str(wm->data, "$.command", command, sizeof(command));
-		
-		if (cmd_len < 0) {
-			// Not JSON format, try legacy string commands for backward compatibility
-			if (ws_msg_equals(wm->data, "start")) {
-				start_simulation_async(&g_ctx);
-				const char *resp = "{\"status\":\"starting\"}";
-				mg_ws_send(c, resp, strlen(resp), WEBSOCKET_OP_TEXT);
-				return;
-			} else if (ws_msg_equals(wm->data, "stop")) {
-				request_stop_simulation(&g_ctx);
-				const char *resp = "{\"status\":\"stopping\"}";
-				mg_ws_send(c, resp, strlen(resp), WEBSOCKET_OP_TEXT);
-				return;
-			} else if (ws_msg_equals(wm->data, "status")) {
-				pthread_mutex_lock(&g_server_state_mutex);
-				int running = g_ctx.is_running;
-				pthread_mutex_unlock(&g_server_state_mutex);
-				const char *resp = running ? "{\"status\":\"running\"}" : "{\"status\":\"idle\"}";
-				mg_ws_send(c, resp, strlen(resp), WEBSOCKET_OP_TEXT);
-				return;
-			}
-			const char *resp = "{\"error\":\"invalid message format\"}";
-			mg_ws_send(c, resp, strlen(resp), WEBSOCKET_OP_TEXT);
-			return;
-		}
 
 		// Handle JSON commands
 		if (strcmp(command, "start") == 0) {
@@ -464,12 +429,8 @@ static void fn(struct mg_connection *c, int ev, void *ev_data) {
 			}
 			
 			start_simulation_async(&g_ctx);
-			const char *resp = "{\"status\":\"starting\"}";
-			mg_ws_send(c, resp, strlen(resp), WEBSOCKET_OP_TEXT);
 		} else if (strcmp(command, "stop") == 0) {
 			request_stop_simulation(&g_ctx);
-			const char *resp = "{\"status\":\"stopping\"}";
-			mg_ws_send(c, resp, strlen(resp), WEBSOCKET_OP_TEXT);
 		} else if (strcmp(command, "status") == 0) {
 			pthread_mutex_lock(&g_server_state_mutex);
 			int running = g_ctx.is_running;
