@@ -7,12 +7,13 @@
     <div style="height: 0.3em;">&nbsp;</div>
     <input id="message" type="text" placeholder="Type message" style="width: 20em;" />
     <button id="send">send message</button>
+    <button id="clear">clear log</button>
     <div style="margin-top: 1em;">Event log:</div>
     <div id="log" style="background: #eee; height: 10em; padding: 0.5em;"><div>
   </body>
   <script>
     var ws, E = function(id) { return document.getElementById(id); };
-    var url = E('url'), connect = E('connect'), message = E('message'), send = E('send'), log = E('log');
+    var url = E('url'), connect = E('connect'), message = E('message'), send = E('send'), log = E('log'), clear = E('clear');
     var enable = function(en) { message.disabled = send.disabled = !en; url.disabled = en; connect.innerHTML = en ? 'disconnect' : 'connect'; };
     enable(false)
     connect.onclick = function() {
@@ -30,6 +31,9 @@
       log.innerHTML += 'SENT: ' + message.value + '<br/>';
       command = "{\"command\": \"" + message.value + "\"}";
       ws.send(command);
+    }
+    clear.onclick = function() {
+      log.innerHTML = '';
     }
   </script>
 </html>
