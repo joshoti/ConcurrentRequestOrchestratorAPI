@@ -23,8 +23,7 @@ RUN apt-get update && \
 # Copy binary from builder
 COPY --from=builder /app/bin/server /app/server
 
-# Copy configuration and static files
-COPY config.json /app/config.json
+# Copy static files
 COPY tests/test_websocket.html /app/tests/test_websocket.html
 
 # Expose WebSocket port
@@ -35,4 +34,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD timeout 2 bash -c "</dev/tcp/localhost/8000" || exit 1
 
 # Run the server
-CMD ["./server"]
+CMD [".bin/server"]
