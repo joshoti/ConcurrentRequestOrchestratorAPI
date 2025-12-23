@@ -91,9 +91,10 @@ void test_list_init(linked_list_t* list) {
 int print_all_elements_and_compare(linked_list_t* list, char* expected) {
     list_node_t* curr = list_first(list);
     char actual[256] = "";
+    int offset = 0;
     int failed = 0;
     while (curr && curr != &list->tail) {
-        sprintf(actual, "%s%d ", actual, *(int*)curr->data);
+        offset += snprintf(actual + offset, sizeof(actual) - offset, "%d ", *(int*)curr->data);
         curr = curr->next;
     }
     // Trim leading/trailing spaces for accurate comparison
