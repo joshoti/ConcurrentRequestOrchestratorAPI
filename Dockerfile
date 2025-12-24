@@ -34,4 +34,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD timeout 2 bash -c "</dev/tcp/localhost/8000" || exit 1
 
 # Run the server
-CMD [".bin/server"]
+CMD ["./bin/server"]
